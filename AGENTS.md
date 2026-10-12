@@ -8,3 +8,8 @@
 > Commits you push to the connected branch sync back to Lovable and show up in
 > the editor, so keep the branch in a working state.
 <!-- LOVABLE:END -->
+
+## App architecture
+- Keep the cycle phase data in a browser-safe shared module and load the Three.js scene inside an effect, so SSR never initializes WebGL.
+- The current Ritu interface is an explicitly labelled frontend preview; keep health entries in transient React state until authenticated Cloud persistence is requested.
+- Express visual styling through the global semantic design system and use the shared Button for interactive controls.
