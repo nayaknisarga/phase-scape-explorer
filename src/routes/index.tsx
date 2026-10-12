@@ -1,9 +1,12 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { lazy, Suspense, useState } from 'react';
 import { ClientOnly } from '@tanstack/react-router';
-import { ArrowRight, ArrowUpRight, Bell, Bookmark, CalendarDays, Check, Heart, House, Leaf, Plus, ShieldCheck, Sparkles, Sun, X, Zap, BookOpen, Flower2 } from 'lucide-react';
+import { useServerFn } from '@tanstack/react-start';
+import { ArrowRight, ArrowUpRight, Bell, Bookmark, CalendarDays, Check, Heart, House, Leaf, Plus, ShieldCheck, Sparkles, Sun, X, Zap, BookOpen, Flower2, ShoppingBag, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { phases, type PhaseKey } from '@/lib/phases';
+import { searchProducts, type ProductOffer } from '@/lib/products.functions';
+import { isClinicalQuery } from '@/lib/product-guard';
 import teaImage from '@/assets/tea.jpg';
 const CycleScene = lazy(() => import('@/components/cycle-scene'));
 export const Route = createFileRoute('/')({
