@@ -16,7 +16,7 @@ Rules: never give exact period or ovulation dates (only ranges); never recommend
 export const askRitu = createServerFn({ method: 'POST' })
   .inputValidator((d: unknown) => Input.parse(d))
   .handler(async ({ data }) => {
-    const key = process.env.LOVABLE_API_KEY;
+    const key = process.env['LOVABLE_API_KEY'];
     if (!key) return { ok: false as const, error: 'AI is not configured.' };
     const c = data.context;
     const ctx = `Cycle day ${c.day} of ~${c.length}. Phase: ${c.phase}. Period expected in ~${c.daysToPeriod} days (±3). Logged today: ${c.symptoms.join(', ') || 'nothing'}. Goal: ${c.goal ?? 'not set'}.`;
