@@ -2,7 +2,7 @@
 @source "../src";
 @import "tw-animate-css";
 @theme inline {
- --color-background: var(--background); --color-foreground: var(--foreground); --color-primary: var(--primary); --color-primary-foreground: var(--primary-foreground); --color-secondary: var(--secondary); --color-secondary-foreground: var(--foreground); --color-muted: var(--muted); --color-muted-foreground: var(--muted-foreground); --color-accent: var(--accent); --color-accent-foreground: var(--foreground); --color-border: var(--border); --color-input: var(--border); --color-ring: var(--primary); --color-card: var(--card); --color-card-foreground: var(--foreground); --color-popover: var(--card); --color-popover-foreground: var(--foreground); --color-destructive: var(--primary); --color-destructive-foreground: var(--primary-foreground);
+ --color-background: var(--background); --color-rose: var(--rose); --color-sage: var(--sage); --color-peach: var(--peach); --color-lavender: var(--lavender); --color-foreground: var(--foreground); --color-primary: var(--primary); --color-primary-foreground: var(--primary-foreground); --color-secondary: var(--secondary); --color-secondary-foreground: var(--foreground); --color-muted: var(--muted); --color-muted-foreground: var(--muted-foreground); --color-accent: var(--accent); --color-accent-foreground: var(--foreground); --color-border: var(--border); --color-input: var(--border); --color-ring: var(--primary); --color-card: var(--card); --color-card-foreground: var(--foreground); --color-popover: var(--card); --color-popover-foreground: var(--foreground); --color-destructive: var(--primary); --color-destructive-foreground: var(--primary-foreground);
  --font-sans: 'DM Sans', sans-serif; --font-display: 'Lora', Georgia, serif;
 }
 :root {
