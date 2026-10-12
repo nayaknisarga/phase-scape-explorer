@@ -147,8 +147,8 @@ function Index() {
   const sheetTitle: Record<Exclude<Sheet, null>, string> = { feel: 'What are you feeling today?', doctor: 'Consult a doctor', test: 'Book a test', period: 'Log your period', why: 'Why this confidence?', chat: 'Ask Ritu' };
   const sheetBody = sheet === 'feel' ? <>
     <div className="grid grid-cols-2 gap-3">{TOP.map((s) => <button key={s.t} onClick={() => toggle(s.t)} className={`flex flex-col items-center gap-2 rounded-2xl p-5 text-sm transition ${picked.includes(s.t) ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}><s.i className={picked.includes(s.t) ? '' : 'text-primary'} />{s.t}</button>)}</div>
-    <h3 className="mt-6 font-semibold">Self care</h3><div className="mt-2 flex flex-wrap gap-2">{SELF.map(chip)}</div>
-    <h3 className="mt-6 font-semibold">Mood</h3><div className="mt-2 flex flex-wrap gap-2">{MOODS.map(chip)}</div>
+    <h3 className="pb-2 pt-6 font-semibold">Self care</h3><div className="mt-2 flex flex-wrap gap-2">{SELF.map(chip)}</div>
+    <h3 className="pb-2 pt-6 font-semibold">Mood</h3><div className="mt-2 flex flex-wrap gap-2">{MOODS.map(chip)}</div>
     {picked.includes('Cramps') && <p className="mt-4 rounded-xl bg-peach p-3 text-xs">Severe pain that stops your day? Please see a doctor.</p>}
     <Button className="sticky bottom-0 mt-6 h-14 w-full rounded-full text-base shadow-lg" disabled={!picked.length} onClick={() => { setLogs((l) => ({ ...l, [selDay]: picked })); setPicked([]); setSheet(null); }}>Apply</Button>
   </> : sheet === 'period' ? <>
@@ -178,7 +178,7 @@ function Index() {
   return <div className="min-h-screen bg-muted/40">
     <div className="relative mx-auto min-h-screen max-w-md bg-background pb-32 shadow-xl">
       {tab === 'home' ? home : tab === 'cycle' ? cycleTab : tab === 'journal' ? journalTab : shopTab}
-      <Button className="fixed bottom-28 right-[max(1.25rem,calc(50%-14rem+1.25rem))] z-20 h-12 rounded-full shadow-lg" onClick={() => setSheet('chat')}><Sparkles />Ask Ritu</Button>
+      <Button size="icon" aria-label="Ask Ritu" className="fixed bottom-28 right-[max(1.25rem,calc(50%-14rem+1.25rem))] z-20 h-12 w-12 rounded-full shadow-lg" onClick={() => setSheet('chat')}><Sparkles /></Button>
       <nav aria-label="Main" className="fixed bottom-5 left-1/2 z-20 flex w-[calc(100%-2.5rem)] max-w-[24rem] -translate-x-1/2 justify-around rounded-full bg-primary p-2 shadow-2xl">
         {navItems.map((n) => <button key={n.k} aria-label={n.l} aria-current={tab === n.k} onClick={() => { setTab(n.k); window.scrollTo(0, 0); }} className={`flex h-12 flex-1 items-center justify-center gap-1.5 rounded-full text-sm text-primary-foreground transition ${tab === n.k ? 'bg-primary-foreground/20 font-medium' : 'opacity-70'}`}><n.i size={20} />{tab === n.k && n.l}</button>)}
       </nav>
