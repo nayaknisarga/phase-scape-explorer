@@ -1,11 +1,12 @@
 import { createFileRoute, ClientOnly } from '@tanstack/react-router';
 import { lazy, Suspense, useMemo, useState } from 'react';
 import { useServerFn } from '@tanstack/react-start';
-import { ArrowLeft, ArrowUpRight, BarChart3, Bookmark, CalendarDays, Check, Heart, House, Leaf, Plus, ShoppingBag, Sparkles, Stethoscope, Sun, TestTube, User, X, Zap, Loader2, Moon, Wind, Smile, BookOpen } from 'lucide-react';
+import { ArrowLeft, ArrowUpRight, BarChart3, Bookmark, CalendarDays, Check, Heart, House, Leaf, Plus, ShoppingBag, Sparkles, Sun, User, X, Zap, Loader2, Moon, Wind, Smile, BookOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { phases } from '@/lib/phases';
 import { searchProducts, type ProductOffer } from '@/lib/products.functions';
 import { isClinicalQuery } from '@/lib/product-guard';
+import { askRitu } from '@/lib/ai.functions';
 import { Onboarding, type Profile } from '@/components/onboarding';
 import teaImage from '@/assets/tea.jpg';
 const CycleScene = lazy(() => import('@/components/cycle-scene'));
@@ -28,7 +29,7 @@ const PICKS = [
   { id: 'journal', title: 'Make room for feelings', desc: 'A guided journal for quiet check-ins.', tag: 'MINDFULNESS', query: 'guided journal notebook India', bg: 'bg-rose' },
 ];
 type Tab = 'home' | 'cycle' | 'journal' | 'shop';
-type Sheet = 'feel' | 'doctor' | 'test' | 'period' | 'why' | 'chat' | null;
+type Sheet = 'feel' | 'period' | 'why' | 'chat' | null;
 
 function Index() {
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -41,7 +42,8 @@ function Index() {
   const [periodInput, setPeriodInput] = useState('2026-10-12');
   const [entry, setEntry] = useState(''); const [journal, setJournal] = useState<string[]>([]);
   const [saved, setSaved] = useState<string[]>([]);
-  const [question, setQuestion] = useState('phase');
+  const [q, setQ] = useState(''); const [chat, setChat] = useState<{ role: 'you' | 'ritu'; text: string }[]>([]); const [thinking, setThinking] = useState(false);
+  const runAsk = useServerFn(askRitu);
   const runSearch = useServerFn(searchProducts);
   const [shop, setShop] = useState<{ label: string; status: 'loading' | 'done'; offers: ProductOffer[]; blocked?: boolean; error?: string } | null>(null);
 
@@ -64,12 +66,17 @@ function Index() {
     try { const r = await runSearch({ data: { query } }); setShop({ label, status: 'done', ...r }); }
     catch { setShop({ label, status: 'done', offers: [], error: 'Couldn’t reach the shops right now.' }); }
   };
+  const send = async (text: string) => {
+    const t = text.trim(); if (!t || thinking) return;
+    setQ(''); setChat((c) => [...c, { role: 'you', text: t }]); setThinking(true);
+    try { const r = await runAsk({ data: { question: t, context: { day: cycle.dayOf, length: cycle.len, phase: cycle.phase.name, daysToPeriod: cycle.daysTo, symptoms: logs[0] ?? [], goal: String((profile as Record<string, unknown>)['goal'] ?? '') || undefined } } });
+      setChat((c) => [...c, { role: 'ritu', text: r.ok ? r.answer : r.error }]); }
+    catch { setChat((c) => [...c, { role: 'ritu', text: 'Couldn’t reach Ritu right now.' }]); }
+    finally { setThinking(false); }
+  };
   const toggle = (v: string) => setPicked((s) => (s.includes(v) ? s.filter((x) => x !== v) : [...s, v]));
   const days = Array.from({ length: 9 }, (_, i) => new Date(TODAY.getTime() + (i - 4) * DAY));
   const sel = new Date(TODAY.getTime() + selDay * DAY);
-  const progress = 1 - cycle.daysTo / cycle.len;
-  const R = 110, C = 2 * Math.PI * R;
-  const angle = progress * 2 * Math.PI - Math.PI / 2;
 
   const chip = (v: string) => <Button key={v} variant="outline" size="sm" className="h-9 rounded-full px-4" data-active={picked.includes(v)} onClick={() => (v.includes('Deep Chat') ? setSheet('chat') : toggle(v))}>{v}</Button>;
 
@@ -86,14 +93,10 @@ function Index() {
             <span className="text-[10px] uppercase">{fmt(d, { weekday: 'short' })}</span><span className="text-lg font-semibold">{d.getDate()}</span>{logs[off]?.length ? <i className={`mt-0.5 h-1 w-1 rounded-full ${a ? 'bg-primary-foreground' : 'bg-primary'}`} /> : <i className="mt-0.5 h-1 w-1" />}
           </button>); })}
       </div>
-      <div className="relative mx-auto mt-6 h-[260px] w-[260px]">
-        <svg viewBox="0 0 260 260" className="h-full w-full -rotate-0">
-          <circle cx="130" cy="130" r={R} fill="none" className="stroke-card" strokeWidth="22" />
-          <circle cx="130" cy="130" r={R} fill="none" className="stroke-primary transition-all duration-700" strokeWidth="22" strokeLinecap="round" strokeDasharray={C} strokeDashoffset={C * (1 - progress)} transform="rotate(-90 130 130)" />
-          <circle cx={130 + R * Math.cos(angle)} cy={130 + R * Math.sin(angle)} r="11" className="fill-card stroke-primary" strokeWidth="3" />
-        </svg>
-        <div className="absolute inset-0 grid place-items-center text-center">
-          <div><p className="text-sm text-muted-foreground">Period in</p><p className="display text-5xl">{cycle.daysTo} <span className="text-3xl">days</span></p><p className="mt-1 text-sm font-medium text-primary">Expected {fmt(cycle.from, { day: 'numeric' })}–{fmt(cycle.to, { day: 'numeric', month: 'short' })}</p><p className="mt-1 text-xs text-muted-foreground">Day {cycle.dayOf} · {cycle.phase.name}</p></div>
+      <div className="relative mx-auto mt-4 h-[280px] w-full">
+        <ClientOnly fallback={<div className="cycle-canvas" />}><Suspense fallback={<div className="cycle-canvas" />}><CycleScene phase={cycle.phase.key} /></Suspense></ClientOnly>
+        <div className="pointer-events-none absolute inset-0 grid place-items-center text-center">
+          <div><p className="text-xs text-muted-foreground">Period in</p><p className="display text-4xl">{cycle.daysTo} <span className="text-2xl">days</span></p><p className="text-xs font-medium text-primary">{fmt(cycle.from, { day: 'numeric' })}–{fmt(cycle.to, { day: 'numeric', month: 'short' })}</p><p className="text-[11px] text-muted-foreground">Day {cycle.dayOf} · {cycle.phase.name}</p></div>
         </div>
       </div>
       <button onClick={() => setSheet('why')} className="mx-5 mt-6 flex w-[calc(100%-2.5rem)] items-center gap-3 rounded-2xl bg-card p-4 text-left shadow-md">
@@ -102,9 +105,9 @@ function Index() {
     </section>
     <section className="px-5 pt-7">
       <h2 className="display text-2xl">My daily insights</h2>
-      <div className="mt-4 grid grid-cols-4 gap-2.5">
-        {[{ l: 'Log symptoms', i: Plus, bg: 'bg-lavender', s: 'feel' as Sheet }, { l: 'Consult doctor', i: Stethoscope, bg: 'bg-peach', s: 'doctor' as Sheet }, { l: 'Book a test', i: TestTube, bg: 'bg-sage', s: 'test' as Sheet }, { l: 'Log period', i: Heart, bg: 'bg-rose', s: 'period' as Sheet }].map((t) => (
-          <button key={t.l} onClick={() => setSheet(t.s)} className={`flex aspect-[3/4] flex-col justify-between rounded-2xl p-3 text-left ${t.bg} transition active:scale-95`}>
+      <div className="mt-4 grid grid-cols-3 gap-2.5">
+        {[{ l: 'Log symptoms', i: Plus, bg: 'bg-lavender', s: 'feel' as Sheet }, { l: 'Ask Ritu AI', i: Sparkles, bg: 'bg-peach', s: 'chat' as Sheet }, { l: 'Log period', i: Heart, bg: 'bg-rose', s: 'period' as Sheet }].map((t) => (
+          <button key={t.l} onClick={() => setSheet(t.s)} className={`flex aspect-square flex-col justify-between rounded-2xl p-3 text-left ${t.bg} transition active:scale-95`}>
             <span className="grid h-9 w-9 place-items-center rounded-full bg-primary text-primary-foreground"><t.i size={18} /></span><span className="text-xs font-medium leading-tight">{t.l}</span>
           </button>))}
       </div>
@@ -118,8 +121,7 @@ function Index() {
   </>;
 
   const cycleTab = <section className="px-5 pt-6">
-    <h1 className="display text-3xl">Your cycle in 3D</h1><p className="text-sm text-muted-foreground">Day {cycle.dayOf} of ~{cycle.len}</p>
-    <div className="relative mt-4 h-[320px] overflow-hidden rounded-3xl bg-rose"><ClientOnly fallback={<div className="cycle-canvas" />}><Suspense fallback={<div className="cycle-canvas" />}><CycleScene phase={cycle.phase.key} /></Suspense></ClientOnly><div className="pointer-events-none absolute inset-0 grid place-items-center text-center"><div><p className="display text-4xl">{cycle.dayOf}</p><p className="text-xs text-primary">{cycle.phase.name}</p></div></div></div>
+    <h1 className="display text-3xl">Your four phases</h1><p className="text-sm text-muted-foreground">You are on day {cycle.dayOf} of ~{cycle.len}</p>
     <div className="mt-5 flex flex-col gap-3">{phases.map((p) => <div key={p.key} className={`rounded-2xl border p-4 ${p.key === cycle.phase.key ? 'border-primary bg-card' : 'border-border bg-card/60'}`}><div className="flex items-center gap-2"><span className={`phase-dot ${p.key}`} /><b className="text-sm">{p.name}</b><span className="ml-auto text-xs text-muted-foreground">{p.days}</span></div><p className="mt-2 text-xs leading-relaxed text-muted-foreground">{p.description}</p></div>)}</div>
     <p className="mt-4 text-[11px] text-muted-foreground">Calendar estimates can’t confirm ovulation and aren’t contraception.</p>
   </section>;
@@ -139,37 +141,41 @@ function Index() {
         <Button variant="ghost" size="icon" className="absolute right-1.5 top-1.5 h-8 w-8 rounded-full bg-card" aria-label={`Save ${p.title}`} onClick={() => setSaved((s) => (s.includes(p.id) ? s.filter((x) => x !== p.id) : [...s, p.id]))}>{saved.includes(p.id) ? <Check /> : <Bookmark />}</Button></div>
       <div className="p-3"><h3 className="display text-base leading-tight">{p.title}</h3><p className="mt-1 text-[11px] text-muted-foreground">{p.desc}</p><Button size="sm" className="mt-3 w-full rounded-full" onClick={() => viewProduct(p.title, p.query)}><ShoppingBag />Compare prices</Button></div>
     </article>)}</div>
-    <p className="mt-4 text-[11px] text-muted-foreground">Ritu never sells contraceptives or prescription medicine — please speak to a doctor or pharmacist.</p>
+    <p className="mt-4 text-[11px] text-muted-foreground">Ritu never sells contraceptives or prescription medicine.</p>
   </section>;
 
-  const shopResult = shop && <div className="mt-4 flex flex-col gap-2" aria-live="polite"><span className="eyebrow">WHERE TO BUY · {shop.label.toUpperCase()}</span>{shop.status === 'loading' ? <p className="text-sm text-muted-foreground"><Loader2 className="inline animate-spin" size={14} /> Finding the best prices…</p> : shop.blocked ? <p className="text-sm">This needs a doctor or pharmacist.</p> : shop.offers.length === 0 ? <p className="text-sm text-muted-foreground">{shop.error ?? 'No offers found right now.'} Try again a little later.</p> : <>{shop.offers.map((o, i) => <a key={o.link + i} href={o.link} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 rounded-xl border border-border bg-card p-2 hover:bg-accent">{o.thumbnail && <img src={o.thumbnail} alt="" className="h-12 w-12 rounded-lg object-cover" loading="lazy" />}<div className="min-w-0 flex-1"><p className="truncate text-sm font-medium">{o.title}</p><p className="text-xs text-muted-foreground">{o.source}</p></div><div className="text-right"><p className="text-sm font-semibold">{o.price}</p>{i === 0 && <span className="rounded bg-primary px-1.5 text-[10px] text-primary-foreground">Best price</span>}</div><ArrowUpRight size={14} /></a>)}<p className="text-[10px] text-muted-foreground">You buy directly from the store — Ritu never handles payments.</p></>}</div>;
+  const shopResult = shop && <div className="mt-4 flex flex-col gap-2" aria-live="polite"><span className="eyebrow">WHERE TO BUY · {shop.label.toUpperCase()}</span>{shop.status === 'loading' ? <p className="text-sm text-muted-foreground"><Loader2 className="inline animate-spin" size={14} /> Finding the best prices…</p> : shop.blocked ? <p className="text-sm">Ritu doesn’t list clinical products.</p> : shop.offers.length === 0 ? <p className="text-sm text-muted-foreground">{shop.error ?? 'No offers found right now.'} Try again a little later.</p> : <>{shop.offers.map((o, i) => <a key={o.link + i} href={o.link} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 rounded-xl border border-border bg-card p-2 hover:bg-accent">{o.thumbnail && <img src={o.thumbnail} alt="" className="h-12 w-12 rounded-lg object-cover" loading="lazy" />}<div className="min-w-0 flex-1"><p className="truncate text-sm font-medium">{o.title}</p><p className="text-xs text-muted-foreground">{o.source}</p></div><div className="text-right"><p className="text-sm font-semibold">{o.price}</p>{i === 0 && <span className="rounded bg-primary px-1.5 text-[10px] text-primary-foreground">Best price</span>}</div><ArrowUpRight size={14} /></a>)}<p className="text-[10px] text-muted-foreground">You buy directly from the store — Ritu never handles payments.</p></>}</div>;
 
-  const sheetTitle: Record<Exclude<Sheet, null>, string> = { feel: 'What are you feeling today?', doctor: 'Consult a doctor', test: 'Book a test', period: 'Log your period', why: 'Why this confidence?', chat: 'Ask Ritu' };
+  const sheetTitle: Record<Exclude<Sheet, null>, string> = { feel: 'What are you feeling today?', period: 'Log your period', why: 'Why this confidence?', chat: 'Ask Ritu AI' };
   const sheetBody = sheet === 'feel' ? <>
     <div className="grid grid-cols-2 gap-3">{TOP.map((s) => <button key={s.t} onClick={() => toggle(s.t)} className={`flex flex-col items-center gap-2 rounded-2xl p-5 text-sm transition ${picked.includes(s.t) ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}><s.i className={picked.includes(s.t) ? '' : 'text-primary'} />{s.t}</button>)}</div>
     <h3 className="pb-2 pt-6 font-semibold">Self care</h3><div className="mt-2 flex flex-wrap gap-2">{SELF.map(chip)}</div>
     <h3 className="pb-2 pt-6 font-semibold">Mood</h3><div className="mt-2 flex flex-wrap gap-2">{MOODS.map(chip)}</div>
-    {picked.includes('Cramps') && <p className="mt-4 rounded-xl bg-peach p-3 text-xs">Severe pain that stops your day? Please see a doctor.</p>}
     <Button className="sticky bottom-0 mt-6 h-14 w-full rounded-full text-base shadow-lg" disabled={!picked.length} onClick={() => { setLogs((l) => ({ ...l, [selDay]: picked })); setPicked([]); setSheet(null); }}>Apply</Button>
   </> : sheet === 'period' ? <>
     <p className="text-sm text-muted-foreground">Your prediction updates right away.</p>
     <label className="field-label mt-4" htmlFor="ps">Period started on</label><input id="ps" type="date" max="2026-10-12" className="field-input" value={periodInput} onChange={(e) => setPeriodInput(e.target.value)} />
     <Button className="mt-6 h-14 w-full rounded-full" disabled={!periodInput || periodInput > '2026-10-12'} onClick={() => { setLastStart(periodInput); setSheet(null); }}>Save period</Button>
-  </> : sheet === 'doctor' ? <>
-    <p className="text-sm">Please see a gynaecologist if you have:</p>
-    <ul className="mt-3 flex flex-col gap-2 text-sm">{['Severe pain that stops daily life', 'Soaking protection every hour', 'Bleeding between periods', 'Cycles shorter than 21 or longer than 35 days', 'A possible pregnancy'].map((x) => <li key={x} className="rounded-xl bg-muted p-3">{x}</li>)}</ul>
-    <p className="mt-4 text-xs text-muted-foreground">Feeling faint with heavy bleeding? Seek urgent care. In-app booking is coming soon.</p>
-  </> : sheet === 'test' ? <>
-    <p className="text-sm text-muted-foreground">Common tests a doctor may suggest. Ask them which suit you.</p>
-    <div className="mt-3 flex flex-col gap-2">{[['Thyroid (TSH)', 'Tiredness, irregular cycles'], ['Haemoglobin & ferritin', 'Heavy periods, fatigue'], ['PCOS panel', 'Irregular cycles, acne'], ['Vitamin D & B12', 'Low energy, low mood']].map(([t, s]) => <div key={t} className="rounded-xl bg-sage p-3"><b className="text-sm">{t}</b><p className="text-xs text-muted-foreground">{s}</p></div>)}</div>
-    <p className="mt-4 text-xs text-muted-foreground">Lab booking is coming soon.</p>
   </> : sheet === 'why' ? <>
     <p className="text-sm leading-relaxed">Ritu shows a window, never a fake exact date. Right now it’s based on {lastStart ? 'your logged period' : 'your setup answers'} and a ~{cycle.len}-day cycle.</p>
     <p className="mt-3 text-sm leading-relaxed text-muted-foreground">Log 3 or more periods and the window gets narrower and more personal.</p>
   </> : sheet === 'chat' ? <>
-    <span className="demo-label">Preview · phase guide, not live AI</span>
-    <p className="mt-3 text-sm leading-relaxed">{question === 'care' ? 'Severe pain, bleeding between periods, soaking protection hourly or a pregnancy concern — please see a doctor.' : question === 'ovulation' ? 'Calendar timing can only estimate ovulation. Don’t use it as contraception.' : cycle.phase.description}</p>
-    <div className="mt-3 flex flex-wrap gap-2"><Button variant="outline" size="sm" className="rounded-full" onClick={() => setQuestion('phase')}>My phase</Button><Button variant="outline" size="sm" className="rounded-full" onClick={() => setQuestion('ovulation')}>Ovulation</Button><Button variant="outline" size="sm" className="rounded-full" onClick={() => setQuestion('care')}>When to seek care</Button></div>
+    <details className="rounded-2xl bg-secondary p-3 text-xs"><summary className="cursor-pointer font-semibold">How the AI works</summary>
+      <ol className="mt-2 flex flex-col gap-1.5 text-muted-foreground">
+        <li><b className="text-foreground">1 · Context:</b> your cycle day, phase, predicted window and today’s logs are turned into a short prompt.</li>
+        <li><b className="text-foreground">2 · Model:</b> a language model answers on a private server — your phone never holds the key.</li>
+        <li><b className="text-foreground">3 · Guardrails:</b> rules stop exact dates, diagnoses and medicine advice; shopping skips clinical items.</li>
+      </ol></details>
+    <div className="mt-4 flex flex-col gap-2" aria-live="polite">
+      {chat.length === 0 && <p className="text-sm text-muted-foreground">Ask anything about how you feel in your {cycle.phase.name.toLowerCase()} phase.</p>}
+      {chat.map((m, i) => <p key={i} className={`max-w-[85%] rounded-2xl px-3 py-2 text-sm ${m.role === 'you' ? 'self-end bg-primary text-primary-foreground' : 'bg-muted'}`}>{m.text}</p>)}
+      {thinking && <p className="text-sm text-muted-foreground"><Loader2 className="inline animate-spin" size={14} /> Thinking…</p>}
+    </div>
+    {chat.length === 0 && <div className="mt-3 flex flex-wrap gap-2">{['What should I eat today?', 'Why am I so tired?', 'Best workout for this phase?'].map((x) => <Button key={x} variant="outline" size="sm" className="rounded-full" onClick={() => send(x)}>{x}</Button>)}</div>}
+    <form className="mt-4 flex gap-2" onSubmit={(e) => { e.preventDefault(); send(q); }}>
+      <input aria-label="Your question" className="field-input flex-1" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Type a question…" />
+      <Button type="submit" className="h-12 rounded-full" disabled={!q.trim() || thinking}>Send</Button>
+    </form>
     {shopResult}
   </> : null;
 
