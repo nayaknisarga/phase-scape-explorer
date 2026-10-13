@@ -26,6 +26,14 @@ const PHASE_SYMPTOMS: Record<string, { t: string; i: typeof Zap }[]> = {
   ovulation: [{ t: 'Mild pelvic twinge', i: Wind }, { t: 'Clear discharge', i: Leaf }, { t: 'High libido', i: Heart }, { t: 'Feeling social', i: Smile }, { t: 'Bloating', i: Moon }, { t: 'Peak energy', i: Zap }],
   luteal: [{ t: 'Tender breasts', i: Heart }, { t: 'Cravings', i: Leaf }, { t: 'Acne', i: Sun }, { t: 'Mood shifts', i: Smile }, { t: 'Bloating', i: Wind }, { t: 'Trouble sleeping', i: Moon }],
 };
+const WHY: Record<string, string> = {
+  'Cramps': 'Your uterus contracts to shed its lining — warmth and gentle stretches can ease it.', 'Heavy flow': 'Heavier bleeding is common on days 1–3. Use high-absorbency or overnight protection and eat iron-rich food.', 'Backache': 'The same prostaglandins behind cramps can radiate to your lower back.', 'Fatigue': 'Low hormones and blood loss can drain energy — rest is fine.', 'Headache': 'Falling estrogen can trigger headaches; hydrate and rest your eyes.', 'Bloating': 'Hormone shifts make your body hold more water; less salt and more water help.',
+  'Tender breasts': 'Progesterone rises after ovulation and can make breasts feel sore.', 'Cravings': 'Your body uses a little more energy now — choose regular, filling meals.', 'Acne': 'Hormone changes can increase skin oil before your period.', 'Mood shifts': 'Hormones dipping before your period can affect mood — be gentle with yourself.', 'Trouble sleeping': 'Progesterone and body temperature changes can disturb sleep.',
+  'More energy': 'Rising estrogen often lifts energy in this phase.', 'Mild pelvic twinge': 'Some feel a small one-sided twinge around ovulation.', 'Clear discharge': 'Stretchy, clear discharge is normal near ovulation.',
+};
+const SUGGEST: Record<string, { title: string; query: string }> = {
+  'Heavy flow': { title: 'XL overnight pads for heavy flow', query: 'XL overnight sanitary pads heavy flow' }, 'Cramps': { title: 'Heat patch for cramps', query: 'heat patch period cramps' }, 'Backache': { title: 'Hot water bag', query: 'hot water bag' }, 'Bloating': { title: 'Ginger tea', query: 'ginger tea' }, 'Acne': { title: 'Gentle face wash', query: 'gentle face wash acne' }, 'Trouble sleeping': { title: 'Chamomile tea', query: 'chamomile tea' }, 'Cravings': { title: 'Dark chocolate', query: 'dark chocolate 70 percent' }, 'Tender breasts': { title: 'Soft cotton bra', query: 'soft non-wired cotton bra' },
+};
 const SELF = ['💬 Deep Chat', '🧠 Mindfulness', '🥦 Nutrition', '💤 Sleeping Well', '💛 Therapy', '💼 Time Off'];
 const MOODS = ['☕ Calm', '😊 Happy', '⚡ Energetic', '🎢 Mood Swings', '😤 Irritated', '😔 Sad', '😰 Anxious', '🌧️ Low', '🏚️ Feeling guilty'];
 const PICKS = [
@@ -43,6 +51,7 @@ function Index() {
   const [sheet, setSheet] = useState<Sheet>(null);
   const [selDay, setSelDay] = useState(0);
   const [picked, setPicked] = useState<string[]>([]);
+  const [applied, setApplied] = useState<string[] | null>(null);
   const [logs, setLogs] = useState<Record<number, string[]>>({});
   const [periodDays, setPeriodDays] = useState<string[]>([]);
   const [draftDays, setDraftDays] = useState<string[]>([]);
@@ -62,25 +71,26 @@ function Index() {
     return start;
   }, [periodDays]);
   const cycle = useMemo(() => {
+    const REF = new Date(TODAY.getTime() + selDay * DAY);
     const len = Number(profile?.length ?? 28);
     const start = parse(lastStart ?? profile?.last ?? '2026-09-24');
     const dayFor = (d: Date) => ((Math.round((d.getTime() - start.getTime()) / DAY) % len) + len) % len + 1;
     const phaseFor = (d: Date) => { const n = dayFor(d); return n <= 5 ? phases[0]! : n <= 11 ? phases[1]! : n <= 14 ? phases[2]! : phases[3]!; };
-    const dayOf = dayFor(TODAY);
-    const diff = Math.round((TODAY.getTime() - start.getTime()) / DAY);
+    const dayOf = dayFor(REF);
+    const diff = Math.round((REF.getTime() - start.getTime()) / DAY);
     const next = new Date(start.getTime() + Math.max(1, Math.ceil(diff / len)) * len * DAY);
     const onPeriod = diff >= 0 && dayOf <= 5 && diff < len;
     const ovuRaw = new Date(next.getTime() - 14 * DAY);
-    const daysTo = Math.max(0, Math.round((next.getTime() - TODAY.getTime()) / DAY));
+    const daysTo = Math.max(0, Math.round((next.getTime() - REF.getTime()) / DAY));
     const predicted = new Set<string>();
     for (let c = 0; c < 4; c++) for (let k = 0; k < 5; k++) predicted.add(iso(new Date(next.getTime() + (c * len + k) * DAY)));
-    return { len, dayOf, daysTo, phase: phaseFor(TODAY), phaseFor, dayFor, predicted, next, from: new Date(next.getTime() - 3 * DAY), to: new Date(next.getTime() + 3 * DAY), ovu: ovuRaw < TODAY ? new Date(ovuRaw.getTime() + len * DAY) : ovuRaw, onPeriod };
-  }, [profile, lastStart]);
+    return { len, dayOf, daysTo, phase: phaseFor(REF), phaseFor, dayFor, predicted, next, from: new Date(next.getTime() - 3 * DAY), to: new Date(next.getTime() + 3 * DAY), ovu: ovuRaw < REF ? new Date(ovuRaw.getTime() + len * DAY) : ovuRaw, onPeriod };
+  }, [profile, lastStart, selDay]);
 
   if (!profile) return <Onboarding onDone={(p) => { setProfile(p); window.scrollTo(0, 0); }} />;
 
-  const viewProduct = async (label: string, query: string) => {
-    setTab('shop');
+  const viewProduct = async (label: string, query: string, inChat = false) => {
+    if (!inChat) setTab('shop');
     if (isClinicalQuery(query)) { setShop({ label, query, status: 'done', offers: [], blocked: true }); return; }
     setShop({ label, query, status: 'loading', offers: [] });
     try { const r = await runSearch({ data: { query } }); setShop({ label, query, status: 'done', ...r }); }
@@ -89,8 +99,8 @@ function Index() {
   const send = async (text: string) => {
     const t = text.trim(); if (!t || thinking) return;
     setQ(''); setChat((c) => [...c, { role: 'you', text: t }]); setThinking(true);
-    try { const r = await runAsk({ data: { question: t, context: { day: cycle.dayOf, length: cycle.len, phase: cycle.phase.name, daysToPeriod: cycle.daysTo, symptoms: logs[0] ?? [], goal: String((profile as Record<string, unknown>)['goal'] ?? '') || undefined } } });
-      setChat((c) => [...c, { role: 'ritu', text: r.ok ? r.answer : r.error }]); }
+    try { const r = await runAsk({ data: { question: t, context: { day: cycle.dayOf, length: cycle.len, phase: cycle.phase.name, daysToPeriod: cycle.daysTo, symptoms: [...(logs[selDay] ?? []), ...(profile.flow === 'heavy' ? ['usually heavy flow'] : [])], goal: String((profile as Record<string, unknown>)['goal'] ?? '') || undefined } } });
+      setChat((c) => [...c, { role: 'ritu', text: r.ok ? r.answer : r.error }]); if (r.ok && r.search) void viewProduct(r.search, r.search, true); }
     catch { setChat((c) => [...c, { role: 'ritu', text: 'Couldn’t reach Ritu right now.' }]); }
     finally { setThinking(false); }
   };
@@ -100,7 +110,7 @@ function Index() {
   const selPhase = cycle.phaseFor(sel);
   const logged = new Set(periodDays);
 
-  const chip = (v: string) => <Button key={v} variant="outline" size="sm" className="h-9 rounded-full px-4" data-active={picked.includes(v)} onClick={() => (v.includes('Deep Chat') ? setSheet('chat') : toggle(v))}>{v}</Button>;
+  const chip = (v: string) => <Button key={v} variant="outline" size="sm" className="h-9 rounded-full px-4" data-active={picked.includes(v)} onClick={() => toggle(v)}>{v}</Button>;
 
   const home = <>
     <section className="rounded-b-[40px] bg-rose px-5 pb-6 pt-5">
@@ -110,7 +120,7 @@ function Index() {
         <Button variant="ghost" size="icon" className="h-11 w-11 rounded-full bg-card" aria-label="Log period" onClick={() => { setDraftDays(periodDays); setSheet('period'); }}><CalendarDays className="text-primary" /></Button>
       </header>
       <div className="mt-5 rounded-3xl bg-card p-5 shadow-md">
-        <p className="eyebrow">{cycle.onPeriod ? 'ON YOUR PERIOD' : 'NEXT PERIOD'}</p>
+        <p className="eyebrow">{cycle.onPeriod ? 'ON YOUR PERIOD' : 'NEXT PERIOD'}{selDay !== 0 ? ` · AS OF ${fmt(sel, { day: 'numeric', month: 'short' }).toUpperCase()}` : ''}</p>
         <p className="display mt-1 text-4xl">{cycle.onPeriod ? <>Period day {cycle.dayOf}</> : cycle.daysTo === 0 ? 'Due today' : <>In {cycle.daysTo} <span className="text-2xl">days</span></>}</p>
         <p className="mt-1 text-sm font-medium text-primary">{cycle.onPeriod ? 'Next likely' : 'Likely'} {fmt(cycle.from, { day: 'numeric', month: 'short' })} – {fmt(cycle.to, { day: 'numeric', month: 'short' })}</p>
         <div className="mt-4 grid grid-cols-3 gap-2 text-center">
@@ -162,7 +172,8 @@ function Index() {
   const shopResult = shop && <div className="mt-4 flex flex-col gap-2" aria-live="polite"><span className="eyebrow">WHERE TO BUY · {shop.label.toUpperCase()}</span>{shop.status === 'loading' ? <p className="text-sm text-muted-foreground"><Loader2 className="inline animate-spin" size={14} /> Finding the best prices…</p> : shop.blocked ? <p className="text-sm">Ritu doesn’t list clinical products.</p> : shop.offers.length === 0 ? <a href={`https://www.google.com/search?tbm=shop&q=${encodeURIComponent(shop.query)}`} target="_blank" rel="noopener noreferrer" className="flex items-center justify-between rounded-xl border border-border bg-card p-3 text-sm hover:bg-accent"><span>Open {shop.label} in Google Shopping</span><ArrowUpRight size={14} /></a> : <>{shop.offers.map((o, i) => <a key={o.link + i} href={o.link} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 rounded-xl border border-border bg-card p-2 hover:bg-accent">{o.thumbnail && <img src={o.thumbnail} alt="" className="h-12 w-12 rounded-lg object-cover" loading="lazy" />}<div className="min-w-0 flex-1"><p className="truncate text-sm font-medium">{o.title}</p><p className="text-xs text-muted-foreground">{o.source}</p></div><div className="text-right"><p className="text-sm font-semibold">{o.price}</p>{i === 0 && <span className="rounded bg-primary px-1.5 text-[10px] text-primary-foreground">Best price</span>}</div><ArrowUpRight size={14} /></a>)}<p className="text-[10px] text-muted-foreground">You buy directly from the store — Ritu never handles payments.</p></>}</div>;
   const shopTab = <section className="px-5 pt-6">
     <h1 className="display text-3xl">A little care</h1><p className="text-sm text-muted-foreground">Picks for your {cycle.phase.name.toLowerCase()} phase · best prices in India</p>
-    <div className="mt-4 grid grid-cols-2 gap-3">{PICKS.map((p) => <article key={p.id} className="overflow-hidden rounded-2xl border border-border bg-card">
+    <div className="mt-4">{[...new Set([...(profile.flow === 'heavy' ? ['Heavy flow'] : []), ...Object.values(logs).flat()])].filter((a) => SUGGEST[a]).length > 0 && <div className="mb-4 flex flex-col gap-2"><p className="eyebrow">BASED ON WHAT YOU LOGGED</p>{[...new Set([...(profile.flow === 'heavy' ? ['Heavy flow'] : []), ...Object.values(logs).flat()])].filter((a) => SUGGEST[a]).map((a) => <Button key={a} variant="outline" className="justify-between rounded-2xl" onClick={() => viewProduct(SUGGEST[a]!.title, SUGGEST[a]!.query)}>{SUGGEST[a]!.title}<ShoppingBag /></Button>)}</div>}</div>
+    <div className="grid grid-cols-2 gap-3">{PICKS.map((p) => <article key={p.id} className="overflow-hidden rounded-2xl border border-border bg-card">
       <div className={`relative h-28 ${p.bg}`}>{p.id === 'tea' ? <img src={teaImage} alt="Chamomile tea" className="h-full w-full object-cover" loading="lazy" /> : <div className="grid h-full place-items-center text-primary">{p.id === 'yoga' ? <Sun size={40} strokeWidth={1.2} /> : p.id === 'heat' ? <Heart size={40} strokeWidth={1.2} /> : <BookOpen size={40} strokeWidth={1.2} />}</div>}<span className="tag">{p.tag}</span>
         <Button variant="ghost" size="icon" className="absolute right-1.5 top-1.5 h-8 w-8 rounded-full bg-card" aria-label={`Save ${p.title}`} onClick={() => setSaved((s) => (s.includes(p.id) ? s.filter((x) => x !== p.id) : [...s, p.id]))}>{saved.includes(p.id) ? <Check /> : <Bookmark />}</Button></div>
       <div className="p-3"><h3 className="display text-base leading-tight">{p.title}</h3><p className="mt-1 text-[11px] text-muted-foreground">{p.desc}</p><Button size="sm" className="mt-3 w-full rounded-full" onClick={() => viewProduct(p.title, p.query)}><ShoppingBag />Compare prices</Button></div>
@@ -173,12 +184,18 @@ function Index() {
 
 
   const sheetTitle: Record<Exclude<Sheet, null>, string> = { feel: 'What are you feeling today?', period: 'Log your period', why: 'Why this confidence?', chat: 'Ask Ritu AI' };
-  const sheetBody = sheet === 'feel' ? <>
+  const sheetBody = sheet === 'feel' && applied ? <>
+    <p className="eyebrow">WHAT’S HAPPENING · {selPhase.name.toUpperCase()} PHASE</p>
+    <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{selPhase.description}</p>
+    <div className="mt-4 flex flex-col gap-2">{applied.map((a) => <div key={a} className="rounded-2xl bg-secondary p-3 text-sm"><b>{a}</b>{WHY[a] ? <p className="mt-1 text-xs text-muted-foreground">{WHY[a]}</p> : null}</div>)}</div>
+    {applied.some((a) => SUGGEST[a]) && <><p className="eyebrow mt-5">SUGGESTED FOR YOU</p><div className="mt-2 flex flex-col gap-2">{applied.filter((a) => SUGGEST[a]).map((a) => <Button key={a} variant="outline" className="justify-between rounded-full" onClick={() => { setSheet(null); setApplied(null); void viewProduct(SUGGEST[a]!.title, SUGGEST[a]!.query); }}>{SUGGEST[a]!.title}<ShoppingBag /></Button>)}</div></>}
+    <div className="mt-6 flex gap-2"><Button variant="outline" className="h-12 flex-1 rounded-full" onClick={() => { setApplied(null); setSheet('chat'); void send(`I logged ${applied.join(', ')}. What is happening and what can help?`); }}><Sparkles />Ask Ritu</Button><Button className="h-12 flex-1 rounded-full" onClick={() => { setApplied(null); setSheet(null); }}>Done</Button></div>
+  </> : sheet === 'feel' ? <>
     <p className="mb-3 text-xs text-muted-foreground">Common in your <b className="text-primary">{selPhase.name}</b> phase · {fmt(sel, { day: 'numeric', month: 'short' })}</p>
     <div className="grid grid-cols-2 gap-3">{(PHASE_SYMPTOMS[selPhase.key] ?? []).map((s) => <button key={s.t} onClick={() => toggle(s.t)} className={`flex flex-col items-center gap-2 rounded-2xl p-5 text-sm transition ${picked.includes(s.t) ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}><s.i className={picked.includes(s.t) ? '' : 'text-primary'} />{s.t}</button>)}</div>
     <h3 className="pb-2 pt-6 font-semibold">Self care</h3><div className="mt-2 flex flex-wrap gap-2">{SELF.map(chip)}</div>
     <h3 className="pb-2 pt-6 font-semibold">Mood</h3><div className="mt-2 flex flex-wrap gap-2">{MOODS.map(chip)}</div>
-    <Button className="sticky bottom-0 mt-6 h-14 w-full rounded-full text-base shadow-lg" disabled={!picked.length} onClick={() => { setLogs((l) => ({ ...l, [selDay]: picked })); setPicked([]); setSheet(null); }}>Apply</Button>
+    <Button className="sticky bottom-0 mt-6 h-14 w-full rounded-full text-base shadow-lg" disabled={!picked.length} onClick={() => { setLogs((l) => ({ ...l, [selDay]: picked })); setApplied(picked); setPicked([]); }}>Apply</Button>
   </> : sheet === 'period' ? <>
     <p className="text-sm text-muted-foreground">Tap each day you bled. Dotted days are predicted.</p>
     <div className="mt-4 flex items-center justify-between"><Button variant="ghost" size="icon" aria-label="Previous month" onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() - 1, 1))}><ArrowLeft /></Button><b>{fmt(month, { month: 'long', year: 'numeric' })}</b><Button variant="ghost" size="icon" aria-label="Next month" onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() + 1, 1))}><ArrowLeft className="rotate-180" /></Button></div>
@@ -201,7 +218,8 @@ function Index() {
       </ol></details>
     <div className="mt-4 flex flex-col gap-2" aria-live="polite">
       {chat.length === 0 && <p className="text-sm text-muted-foreground">Ask anything about how you feel in your {cycle.phase.name.toLowerCase()} phase.</p>}
-      {chat.map((m, i) => <p key={i} className={`max-w-[85%] rounded-2xl px-3 py-2 text-sm ${m.role === 'you' ? 'self-end bg-primary text-primary-foreground' : 'bg-muted'}`}>{m.text}</p>)}
+      {chat.map((m, i) => <p key={i} className={`max-w-[85%] rounded-2xl px-3 py-2 text-sm ${m.role === 'you' ? 'self-end bg-primary text-primary-foreground' : 'bg-muted'}`}>{m.text.split('**').map((part, j) => (j % 2 ? <b key={j}>{part}</b> : part))}</p>)}
+      {sheet === 'chat' && shopResult}
       {thinking && <p className="text-sm text-muted-foreground"><Loader2 className="inline animate-spin" size={14} /> Thinking…</p>}
     </div>
     {chat.length === 0 && <div className="mt-3 flex flex-wrap gap-2">{['What should I eat today?', 'Why am I so tired?', 'Best workout for this phase?'].map((x) => <Button key={x} variant="outline" size="sm" className="rounded-full" onClick={() => send(x)}>{x}</Button>)}</div>}
@@ -211,7 +229,7 @@ function Index() {
     </form>
     </> : null;
 
-  const navItems: { k: Tab; i: typeof House; l: string }[] = [{ k: 'home', i: House, l: 'Home' }, { k: 'cycle', i: Heart, l: 'Cycle' }, { k: 'journal', i: User, l: 'Journal' }, { k: 'shop', i: ShoppingBag, l: 'Shop' }];
+  const navItems: { k: Tab; i: typeof House; l: string }[] = [{ k: 'home', i: House, l: 'Home' }, { k: 'journal', i: User, l: 'Journal' }, { k: 'shop', i: ShoppingBag, l: 'Shop' }];
 
   return <div className="min-h-screen bg-muted/40">
     <div className="relative mx-auto min-h-screen max-w-md bg-background pb-32 shadow-xl">
@@ -220,7 +238,7 @@ function Index() {
       <nav aria-label="Main" className="fixed bottom-5 left-1/2 z-20 flex w-[calc(100%-2.5rem)] max-w-[24rem] -translate-x-1/2 justify-around rounded-full bg-primary p-2 shadow-2xl">
         {navItems.map((n) => <button key={n.k} aria-label={n.l} aria-current={tab === n.k} onClick={() => { setTab(n.k); window.scrollTo(0, 0); }} className={`flex h-12 flex-1 items-center justify-center gap-1.5 rounded-full text-sm text-primary-foreground transition ${tab === n.k ? 'bg-primary-foreground/20 font-medium' : 'opacity-70'}`}><n.i size={20} />{tab === n.k && n.l}</button>)}
       </nav>
-      {sheet && <div className="fixed inset-0 z-30 flex items-end justify-center bg-foreground/30" onClick={() => setSheet(null)}>
+      {sheet && <div className="fixed inset-0 z-30 flex items-end justify-center bg-foreground/30" onClick={() => { setSheet(null); setApplied(null); }}>
         <section role="dialog" aria-modal="true" aria-label={sheetTitle[sheet]} className="max-h-[88vh] w-full max-w-md overflow-y-auto rounded-t-[32px] bg-background p-5 pb-8" onClick={(e) => e.stopPropagation()}>
           <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-border" />
           <div className="mb-5 flex items-center gap-2"><Button variant="ghost" size="icon" aria-label="Back" onClick={() => setSheet(null)}><ArrowLeft /></Button><h2 className="display flex-1 text-xl">{sheetTitle[sheet]}</h2><Button variant="ghost" size="icon" aria-label="Close" onClick={() => setSheet(null)}><X /></Button></div>
