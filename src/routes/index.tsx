@@ -34,6 +34,18 @@ const WHY: Record<string, string> = {
 const SUGGEST: Record<string, { title: string; query: string }> = {
   'Heavy flow': { title: 'XL overnight pads for heavy flow', query: 'XL overnight sanitary pads heavy flow' }, 'Cramps': { title: 'Heat patch for cramps', query: 'heat patch period cramps' }, 'Backache': { title: 'Hot water bag', query: 'hot water bag' }, 'Bloating': { title: 'Ginger tea', query: 'ginger tea' }, 'Acne': { title: 'Gentle face wash', query: 'gentle face wash acne' }, 'Trouble sleeping': { title: 'Chamomile tea', query: 'chamomile tea' }, 'Cravings': { title: 'Dark chocolate', query: 'dark chocolate 70 percent' }, 'Tender breasts': { title: 'Soft cotton bra', query: 'soft non-wired cotton bra' },
 };
+type Q = { id: string; title: string; multi: boolean; opts: string[] };
+const MOOD_Q = (o: string[]): Q => ({ id: 'mood', title: 'Mood', multi: true, opts: o });
+const CHECKIN: Record<string, Q[]> = {
+  menstrual: [MOOD_Q(['Calm', 'Happy', 'Energetic', 'Irritated', 'Mood swings', 'Sad', 'Anxious', 'Feeling low']), { id: 'sym', title: 'Symptoms', multi: true, opts: ['Cramps', 'Backache', 'Headache', 'Bloating', 'Breast tenderness', 'Clots', 'Tiredness', 'Nausea', 'Digestive issues'] }, { id: 'flow', title: 'Flow today', multi: false, opts: ['Spotting', 'Light', 'Medium', 'Heavy', 'Very heavy'] }, { id: 'pain', title: 'Pain level', multi: false, opts: ['None', 'Mild', 'Moderate', 'Severe'] }, { id: 'care', title: 'Self-care', multi: true, opts: ['Rest', 'Warm drink', 'Good food', 'Gentle movement', 'Sleep', 'Time for myself'] }],
+  follicular: [MOOD_Q(['Calm', 'Happy', 'Focused', 'Energetic', 'Playful', 'Irritated', 'Anxious', 'Sad', 'Low']), { id: 'sym', title: 'Symptoms', multi: true, opts: ['Acne', 'Bloating', 'Headache', 'Tiredness', 'Digestive issues', 'None'] }, { id: 'life', title: 'Lifestyle', multi: true, opts: ['Slept well', 'Exercised', 'Healthy food', 'Good hydration', 'Productive', 'Relaxation'] }],
+  ovulation: [MOOD_Q(['Confident', 'Happy', 'Energetic', 'Playful', 'Irritated', 'Anxious', 'Calm', 'Low']), { id: 'mucus', title: 'Discharge', multi: false, opts: ['Dry', 'Sticky', 'Creamy', 'Egg white', 'Watery'] }, { id: 'care', title: 'Self-care', multi: true, opts: ['Hydrate', 'Light exercise', 'Good nutrition', 'Rest', 'Stress relief', 'Time for myself'] }],
+  luteal: [MOOD_Q(['Calm', 'Happy', 'Irritated', 'Anxious', 'Mood swings', 'Sad', 'Feeling low', 'Energetic']), { id: 'sym', title: 'Symptoms', multi: true, opts: ['Bloating', 'Breast tenderness', 'Cramps', 'Headache', 'Acne', 'Tiredness', 'Cravings', 'Poor sleep', 'None'] }, { id: 'sleep', title: 'Sleep quality', multi: false, opts: ['Poor', 'Okay', 'Good', 'Very good'] }, { id: 'care', title: 'Self-care', multi: true, opts: ['Rest', 'Warm bath', 'Magnesium-rich food', 'Early sleep', 'Healthy food', 'Relaxation'] }],
+};
+const RULES: Record<string, { title: string; query: string }> = {
+  'Heavy': { title: 'XL overnight pads (heavy flow)', query: 'XL overnight sanitary pads heavy flow' }, 'Very heavy': { title: 'XXL overnight pads + period underwear', query: 'XXL overnight sanitary pads extra heavy flow' }, 'Medium': { title: 'Regular pads with wings', query: 'regular sanitary pads with wings' }, 'Light': { title: 'Panty liners', query: 'panty liners' }, 'Spotting': { title: 'Panty liners', query: 'panty liners' },
+  'Severe': { title: 'Heat patch for cramps', query: 'heat patch period cramps' }, 'Cramps': { title: 'Hot water bag', query: 'hot water bag' }, 'Bloating': { title: 'Ginger tea', query: 'ginger tea' }, 'Poor sleep': { title: 'Chamomile tea', query: 'chamomile tea' }, 'Acne': { title: 'Gentle face wash', query: 'gentle face wash acne' },
+};
 const SELF = ['💬 Deep Chat', '🧠 Mindfulness', '🥦 Nutrition', '💤 Sleeping Well', '💛 Therapy', '💼 Time Off'];
 const MOODS = ['☕ Calm', '😊 Happy', '⚡ Energetic', '🎢 Mood Swings', '😤 Irritated', '😔 Sad', '😰 Anxious', '🌧️ Low', '🏚️ Feeling guilty'];
 const PICKS = [
@@ -52,6 +64,8 @@ function Index() {
   const [selDay, setSelDay] = useState(0);
   const [picked, setPicked] = useState<string[]>([]);
   const [applied, setApplied] = useState<string[] | null>(null);
+  const [ans, setAns] = useState<Record<string, string[]>>({}); const [note, setNote] = useState('');
+  const [ciReply, setCiReply] = useState<string | null>(null);
   const [logs, setLogs] = useState<Record<number, string[]>>({});
   const [periodDays, setPeriodDays] = useState<string[]>([]);
   const [draftDays, setDraftDays] = useState<string[]>([]);
@@ -104,13 +118,27 @@ function Index() {
     catch { setChat((c) => [...c, { role: 'ritu', text: 'Couldn’t reach Ritu right now.' }]); }
     finally { setThinking(false); }
   };
+  const saveCheckin = async () => {
+    const qs = CHECKIN[selPhase.key] ?? [];
+    const flat = qs.flatMap((q) => (ans[q.id] ?? []).map((v) => (q.multi ? v : `${q.title}: ${v}`)));
+    const items = [...flat, ...(note.trim() ? [`Note: ${note.trim()}`] : [])];
+    setLogs((l) => ({ ...l, [selDay]: items })); setApplied(Object.values(ans).flat()); setCiReply(null); setShop(null);
+    const summary = qs.map((q) => ans[q.id]?.length ? `${q.title}: ${ans[q.id]!.join(', ')}` : '').filter(Boolean).join('; ');
+    try {
+      const r = await runAsk({ data: { question: `My check-in today (${selPhase.name} phase): ${summary}${note.trim() ? `. Note: ${note.trim().slice(0, 200)}` : ''}. Explain briefly what is happening in my body and what can help. If my flow is logged, suggest the right pad type.`, context: { day: cycle.dayFor(sel), length: cycle.len, phase: selPhase.name, daysToPeriod: cycle.daysTo, symptoms: items.slice(0, 30).map((x) => x.slice(0, 60)), goal: profile.goal || undefined } } });
+      setCiReply(r.ok ? r.answer : r.error);
+      const flow = ans['flow']?.[0];
+      const q = flow && RULES[flow] ? RULES[flow]!.query : r.ok && r.search ? r.search : null;
+      if (q) void viewProduct(flow && RULES[flow] ? RULES[flow]!.title : q, q, true);
+    } catch { setCiReply('Couldn’t reach Ritu right now.'); }
+  };
   const toggle = (v: string) => setPicked((s) => (s.includes(v) ? s.filter((x) => x !== v) : [...s, v]));
   const days = Array.from({ length: 14 }, (_, i) => new Date(TODAY.getTime() + (i - 3) * DAY));
   const sel = new Date(TODAY.getTime() + selDay * DAY);
   const selPhase = cycle.phaseFor(sel);
   const logged = new Set(periodDays);
 
-  const chip = (v: string) => <Button key={v} variant="outline" size="sm" className="h-9 rounded-full px-4" data-active={picked.includes(v)} onClick={() => toggle(v)}>{v}</Button>;
+  const chip = (v: string) => <Button key={v} variant="outline" size="sm" className={`h-9 rounded-full px-4 ${picked.includes(v) ? "border-primary bg-primary text-primary-foreground" : ""}`} data-active={picked.includes(v)} onClick={() => toggle(v)}>{v}</Button>;
 
   const home = <>
     <section className="rounded-b-[40px] bg-rose px-5 pb-6 pt-5">
@@ -121,7 +149,7 @@ function Index() {
       </header>
       <div className="mt-5 rounded-3xl bg-card p-5 shadow-md">
         <p className="eyebrow">{cycle.onPeriod ? 'ON YOUR PERIOD' : 'NEXT PERIOD'}{selDay !== 0 ? ` · AS OF ${fmt(sel, { day: 'numeric', month: 'short' }).toUpperCase()}` : ''}</p>
-        <p className="display mt-1 text-4xl">{cycle.onPeriod ? <>Period day {cycle.dayOf}</> : cycle.daysTo === 0 ? 'Due today' : <>In {cycle.daysTo} <span className="text-2xl">days</span></>}</p>
+        <p className="display mt-1 text-4xl">{cycle.onPeriod ? <>Period day {cycle.dayOf}</> : cycle.daysTo === 0 ? <>Expected <span className="text-2xl">today</span></> : <>In {cycle.daysTo} <span className="text-2xl">days</span></>}</p>
         <p className="mt-1 text-sm font-medium text-primary">{cycle.onPeriod ? 'Next likely' : 'Likely'} {fmt(cycle.from, { day: 'numeric', month: 'short' })} – {fmt(cycle.to, { day: 'numeric', month: 'short' })}</p>
         <div className="mt-4 grid grid-cols-3 gap-2 text-center">
           <div className="rounded-2xl bg-secondary p-2"><p className="text-[10px] text-muted-foreground">Cycle day</p><p className="font-semibold">{cycle.dayOf}</p></div>
@@ -186,16 +214,16 @@ function Index() {
   const sheetTitle: Record<Exclude<Sheet, null>, string> = { feel: 'What are you feeling today?', period: 'Log your period', why: 'Why this confidence?', chat: 'Ask Ritu AI' };
   const sheetBody = sheet === 'feel' && applied ? <>
     <p className="eyebrow">WHAT’S HAPPENING · {selPhase.name.toUpperCase()} PHASE</p>
-    <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{selPhase.description}</p>
-    <div className="mt-4 flex flex-col gap-2">{applied.map((a) => <div key={a} className="rounded-2xl bg-secondary p-3 text-sm"><b>{a}</b>{WHY[a] ? <p className="mt-1 text-xs text-muted-foreground">{WHY[a]}</p> : null}</div>)}</div>
-    {applied.some((a) => SUGGEST[a]) && <><p className="eyebrow mt-5">SUGGESTED FOR YOU</p><div className="mt-2 flex flex-col gap-2">{applied.filter((a) => SUGGEST[a]).map((a) => <Button key={a} variant="outline" className="justify-between rounded-full" onClick={() => { setSheet(null); setApplied(null); void viewProduct(SUGGEST[a]!.title, SUGGEST[a]!.query); }}>{SUGGEST[a]!.title}<ShoppingBag /></Button>)}</div></>}
-    <div className="mt-6 flex gap-2"><Button variant="outline" className="h-12 flex-1 rounded-full" onClick={() => { setApplied(null); setSheet('chat'); void send(`I logged ${applied.join(', ')}. What is happening and what can help?`); }}><Sparkles />Ask Ritu</Button><Button className="h-12 flex-1 rounded-full" onClick={() => { setApplied(null); setSheet(null); }}>Done</Button></div>
+    <div className="mt-3 rounded-2xl bg-secondary p-4 text-sm leading-relaxed">{ciReply === null ? <span className="text-muted-foreground"><Loader2 className="inline animate-spin" size={14} /> Ritu is reading your check-in…</span> : ciReply.split('**').map((part, j) => (j % 2 ? <b key={j}>{part}</b> : part))}</div>
+    {shopResult}
+    {applied.filter((a) => RULES[a]).length > 0 && <><p className="eyebrow mt-5">MORE FOR WHAT YOU LOGGED</p><div className="mt-2 flex flex-col gap-2">{[...new Set(applied.filter((a) => RULES[a]))].map((a) => <Button key={a} variant="outline" className="justify-between rounded-full" onClick={() => void viewProduct(RULES[a]!.title, RULES[a]!.query, true)}>{RULES[a]!.title}<ShoppingBag /></Button>)}</div></>}
+    <Button className="mt-6 h-12 w-full rounded-full" onClick={() => { setApplied(null); setSheet(null); setAns({}); setNote(''); }}>Done</Button>
   </> : sheet === 'feel' ? <>
-    <p className="mb-3 text-xs text-muted-foreground">Common in your <b className="text-primary">{selPhase.name}</b> phase · {fmt(sel, { day: 'numeric', month: 'short' })}</p>
-    <div className="grid grid-cols-2 gap-3">{(PHASE_SYMPTOMS[selPhase.key] ?? []).map((s) => <button key={s.t} onClick={() => toggle(s.t)} className={`flex flex-col items-center gap-2 rounded-2xl p-5 text-sm transition ${picked.includes(s.t) ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}><s.i className={picked.includes(s.t) ? '' : 'text-primary'} />{s.t}</button>)}</div>
-    <h3 className="pb-2 pt-6 font-semibold">Self care</h3><div className="mt-2 flex flex-wrap gap-2">{SELF.map(chip)}</div>
-    <h3 className="pb-2 pt-6 font-semibold">Mood</h3><div className="mt-2 flex flex-wrap gap-2">{MOODS.map(chip)}</div>
-    <Button className="sticky bottom-0 mt-6 h-14 w-full rounded-full text-base shadow-lg" disabled={!picked.length} onClick={() => { setLogs((l) => ({ ...l, [selDay]: picked })); setApplied(picked); setPicked([]); }}>Apply</Button>
+    <p className="mb-1 text-xs text-muted-foreground">{fmt(sel, { day: 'numeric', month: 'short' })} · Cycle day {cycle.dayFor(sel)} · <b className="text-primary">{selPhase.name}</b></p>
+    {(CHECKIN[selPhase.key] ?? []).map((q) => <div key={q.id} className="mt-5"><h3 className="font-semibold">{q.title}{!q.multi && <span className="ml-2 text-[10px] font-normal text-muted-foreground">pick one</span>}</h3><div className="mt-2 flex flex-wrap gap-2">{q.opts.map((o) => { const on = (ans[q.id] ?? []).includes(o); return <button key={o} type="button" aria-pressed={on} onClick={() => setAns((s) => { const cur = s[q.id] ?? []; return { ...s, [q.id]: q.multi ? (on ? cur.filter((x) => x !== o) : [...cur, o]) : on ? [] : [o] }; })} className={`flex h-9 items-center gap-1 rounded-full border px-4 text-sm transition ${on ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-card'}`}>{on && <Check size={14} />}{o}</button>; })}</div></div>)}
+    <h3 className="mt-5 font-semibold">Notes <span className="text-[10px] font-normal text-muted-foreground">optional</span></h3>
+    <textarea aria-label="Notes" className="field-input mt-2 h-20 rounded-2xl py-2" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Write anything you want to remember…" />
+    <Button className="sticky bottom-0 mt-6 h-14 w-full rounded-full text-base shadow-lg" disabled={!Object.values(ans).some((v) => v.length) && !note.trim()} onClick={() => void saveCheckin()}>Save check-in</Button>
   </> : sheet === 'period' ? <>
     <p className="text-sm text-muted-foreground">Tap each day you bled. Dotted days are predicted.</p>
     <div className="mt-4 flex items-center justify-between"><Button variant="ghost" size="icon" aria-label="Previous month" onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() - 1, 1))}><ArrowLeft /></Button><b>{fmt(month, { month: 'long', year: 'numeric' })}</b><Button variant="ghost" size="icon" aria-label="Next month" onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() + 1, 1))}><ArrowLeft className="rotate-180" /></Button></div>
