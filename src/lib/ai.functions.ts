@@ -11,7 +11,8 @@ const Input = z.object({
 
 const SYSTEM = `You are Ritu, a warm menstrual-wellness guide for users in India.
 Use the cycle context given. Answer in 2-4 short sentences, plain language.
-Rules: never give exact period or ovulation dates (only ranges); never recommend or dose prescription medicine, hormones or contraceptives; never diagnose. Suggest food, movement, sleep and self-care tied to the phase.`;
+Rules: never give exact period or ovulation dates (only ranges); never recommend or dose prescription medicine, hormones or contraceptives; never diagnose. Suggest food, movement, sleep and self-care tied to the phase.
+If the question is about buying or choosing a non-clinical product (pads, tampons, cups, heat patch, tea, etc.), or the user logged heavy flow and asks about protection, end with a final line exactly: SEARCH: <short Google Shopping query for India>. Otherwise do not add that line.`;
 
 export const askRitu = createServerFn({ method: 'POST' })
   .inputValidator((d: unknown) => Input.parse(d))
@@ -44,5 +45,6 @@ export const askRitu = createServerFn({ method: 'POST' })
         try { const e = JSON.parse(l.slice(5).trim()); if (e.type === 'response.output_text.delta') text += e.delta; } catch { /* skip */ }
       }
     }
-    return text.trim() ? { ok: true as const, answer: text.trim(), context: ctx } : { ok: false as const, error: 'No answer this time.' };
+    const m = text.match(/\n?SEARCH:\s*(.+)\s*$/i); const search = m?.[1]?.trim().slice(0, 100); const answer = text.replace(/\n?SEARCH:.*$/i, '').trim();
+    return answer ? { ok: true as const, answer, search: search && search.length >= 2 ? search : undefined, context: ctx } : { ok: false as const, error: 'No answer this time.' };
   });
