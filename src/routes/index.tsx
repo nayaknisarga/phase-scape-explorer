@@ -15,7 +15,7 @@ export const Route = createFileRoute('/')({
   component: Index,
 });
 
-const TODAY = new Date('2026-10-12T00:00:00');
+const _n = new Date(); const TODAY = new Date(_n.getFullYear(), _n.getMonth(), _n.getDate());
 const DAY = 86400000;
 const fmt = (d: Date, o: Intl.DateTimeFormatOptions) => d.toLocaleDateString('en-IN', o);
 const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -64,14 +64,17 @@ function Index() {
   const cycle = useMemo(() => {
     const len = Number(profile?.length ?? 28);
     const start = parse(lastStart ?? profile?.last ?? '2026-09-24');
-    const dayFor = (d: Date) => ((Math.floor((d.getTime() - start.getTime()) / DAY) % len) + len) % len + 1;
+    const dayFor = (d: Date) => ((Math.round((d.getTime() - start.getTime()) / DAY) % len) + len) % len + 1;
     const phaseFor = (d: Date) => { const n = dayFor(d); return n <= 5 ? phases[0]! : n <= 11 ? phases[1]! : n <= 14 ? phases[2]! : phases[3]!; };
     const dayOf = dayFor(TODAY);
-    const next = new Date(start.getTime() + Math.max(1, Math.ceil((TODAY.getTime() - start.getTime() + 1) / (len * DAY))) * len * DAY);
+    const diff = Math.round((TODAY.getTime() - start.getTime()) / DAY);
+    const next = new Date(start.getTime() + Math.max(1, Math.ceil(diff / len)) * len * DAY);
+    const onPeriod = diff >= 0 && dayOf <= 5 && diff < len;
+    const ovuRaw = new Date(next.getTime() - 14 * DAY);
     const daysTo = Math.max(0, Math.round((next.getTime() - TODAY.getTime()) / DAY));
     const predicted = new Set<string>();
     for (let c = 0; c < 4; c++) for (let k = 0; k < 5; k++) predicted.add(iso(new Date(next.getTime() + (c * len + k) * DAY)));
-    return { len, dayOf, daysTo, phase: phaseFor(TODAY), phaseFor, dayFor, predicted, next, from: new Date(next.getTime() - 3 * DAY), to: new Date(next.getTime() + 3 * DAY), ovu: new Date(next.getTime() - 14 * DAY) };
+    return { len, dayOf, daysTo, phase: phaseFor(TODAY), phaseFor, dayFor, predicted, next, from: new Date(next.getTime() - 3 * DAY), to: new Date(next.getTime() + 3 * DAY), ovu: ovuRaw < TODAY ? new Date(ovuRaw.getTime() + len * DAY) : ovuRaw, onPeriod };
   }, [profile, lastStart]);
 
   if (!profile) return <Onboarding onDone={(p) => { setProfile(p); window.scrollTo(0, 0); }} />;
@@ -107,9 +110,9 @@ function Index() {
         <Button variant="ghost" size="icon" className="h-11 w-11 rounded-full bg-card" aria-label="Log period" onClick={() => { setDraftDays(periodDays); setSheet('period'); }}><CalendarDays className="text-primary" /></Button>
       </header>
       <div className="mt-5 rounded-3xl bg-card p-5 shadow-md">
-        <p className="eyebrow">NEXT PERIOD</p>
-        <p className="display mt-1 text-4xl">{cycle.daysTo === 0 ? 'Due today' : <>In {cycle.daysTo} <span className="text-2xl">days</span></>}</p>
-        <p className="mt-1 text-sm font-medium text-primary">Likely {fmt(cycle.from, { day: 'numeric', month: 'short' })} – {fmt(cycle.to, { day: 'numeric', month: 'short' })}</p>
+        <p className="eyebrow">{cycle.onPeriod ? 'ON YOUR PERIOD' : 'NEXT PERIOD'}</p>
+        <p className="display mt-1 text-4xl">{cycle.onPeriod ? <>Period day {cycle.dayOf}</> : cycle.daysTo === 0 ? 'Due today' : <>In {cycle.daysTo} <span className="text-2xl">days</span></>}</p>
+        <p className="mt-1 text-sm font-medium text-primary">{cycle.onPeriod ? 'Next likely' : 'Likely'} {fmt(cycle.from, { day: 'numeric', month: 'short' })} – {fmt(cycle.to, { day: 'numeric', month: 'short' })}</p>
         <div className="mt-4 grid grid-cols-3 gap-2 text-center">
           <div className="rounded-2xl bg-secondary p-2"><p className="text-[10px] text-muted-foreground">Cycle day</p><p className="font-semibold">{cycle.dayOf}</p></div>
           <div className="rounded-2xl bg-secondary p-2"><p className="text-[10px] text-muted-foreground">Phase</p><p className="font-semibold">{cycle.phase.name}</p></div>
