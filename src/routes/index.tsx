@@ -244,12 +244,12 @@ function Index() {
     const dayOf = dayFor(REF);
     const diff = Math.round((REF.getTime() - start.getTime()) / DAY);
     const next = new Date(start.getTime() + Math.max(1, Math.ceil(diff / len)) * len * DAY);
-    const onPeriod = diff >= 0 && dayOf <= 5 && diff < len;
+    const onPeriod = diff >= 0 && dayOf <= dur && diff < len;
     const ovuRaw = new Date(next.getTime() - 14 * DAY);
     const daysTo = Math.max(0, Math.round((next.getTime() - REF.getTime()) / DAY));
     const predicted = new Set<string>();
     for (let c = 0; c < 4; c++)
-      for (let k = 0; k < 5; k++)
+      for (let k = 0; k < dur; k++)
         predicted.add(iso(new Date(next.getTime() + (c * len + k) * DAY)));
     return {
       len,
