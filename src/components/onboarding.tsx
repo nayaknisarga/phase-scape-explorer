@@ -215,6 +215,8 @@ export function Onboarding({ onDone }: { onDone: (p: Profile) => void }) {
       valid: Number(p.duration) >= 1 && Number(p.duration) <= 10,
     },
     {
+      eyebrow: "YOUR CYCLE",
+      q: "How is your flow, usually?",
       body: choices("flow", [
         opt("light", "Light", "Liners are enough"),
         opt("moderate", "Moderate", "A typical flow"),
