@@ -36,7 +36,7 @@ import periodImage from "@/assets/period-care.jpg";
 import heatImage from "@/assets/heat-care.jpg";
 import yogaImage from "@/assets/yoga-care.jpg";
 import journalImage from "@/assets/journal-care.jpg";
-import { phaseQuestions as CHECKIN, selectAnswer } from "@/lib/checkin";
+import { phaseQuestions as CHECKIN, selectAnswer, checkinProductQuery } from "@/lib/checkin";
 import { Message, MessageContent, MessageResponse } from "@/components/ai-elements/message";
 import {
   Conversation,
@@ -131,37 +131,6 @@ const WHY: Record<string, string> = {
   "Mild pelvic twinge": "Some feel a small one-sided twinge around ovulation.",
   "Clear discharge": "Stretchy, clear discharge is normal near ovulation.",
 };
-const SUGGEST: Record<string, { title: string; query: string }> = {
-  "Heavy flow": {
-    title: "XL overnight pads for heavy flow",
-    query: "XL overnight sanitary pads heavy flow",
-  },
-  Cramps: { title: "Heat patch for cramps", query: "heat patch period cramps" },
-  Backache: { title: "Hot water bag", query: "hot water bag" },
-  Bloating: { title: "Ginger tea", query: "ginger tea" },
-  Acne: { title: "Gentle face wash", query: "gentle face wash acne" },
-  "Trouble sleeping": { title: "Chamomile tea", query: "chamomile tea" },
-  Cravings: { title: "Dark chocolate", query: "dark chocolate 70 percent" },
-  "Tender breasts": { title: "Soft cotton bra", query: "soft non-wired cotton bra" },
-};
-const RULES: Record<string, { title: string; query: string }> = {
-  Heavy: {
-    title: "XL overnight pads (heavy flow)",
-    query: "XL overnight sanitary pads heavy flow",
-  },
-  "Very heavy": {
-    title: "XXL overnight pads + period underwear",
-    query: "XXL overnight sanitary pads extra heavy flow",
-  },
-  Medium: { title: "Regular pads with wings", query: "regular sanitary pads with wings" },
-  Light: { title: "Panty liners", query: "panty liners" },
-  Spotting: { title: "Panty liners", query: "panty liners" },
-  Severe: { title: "Heat patch for cramps", query: "heat patch period cramps" },
-  Cramps: { title: "Hot water bag", query: "hot water bag" },
-  Bloating: { title: "Ginger tea", query: "ginger tea" },
-  "Poor sleep": { title: "Chamomile tea", query: "chamomile tea" },
-  Acne: { title: "Gentle face wash", query: "gentle face wash acne" },
-};
 const SELF = [
   "💬 Deep Chat",
   "🧠 Mindfulness",
@@ -227,7 +196,6 @@ function Index() {
   const [applied, setApplied] = useState<string[] | null>(null);
   const [ans, setAns] = useState<Record<string, string[]>>({});
   const [note, setNote] = useState("");
-  const [ciReply, setCiReply] = useState<string | null>(null);
   const [logs, setLogs] = useState<Record<number, string[]>>({});
   const [periodDays, setPeriodDays] = useState<string[]>([]);
   const [draftDays, setDraftDays] = useState<string[]>([]);
@@ -332,6 +300,7 @@ function Index() {
     const t = text.trim();
     if (!t || thinking) return;
     setQ("");
+    setShop(null);
     setChat((c) => [...c, { role: "you", text: t }]);
     setThinking(true);
     try {
@@ -345,14 +314,14 @@ function Index() {
             daysToPeriod: cycle.daysTo,
             symptoms: [
               ...(logs[selDay] ?? []),
-              ...(profile.flow === "heavy" ? ["usually heavy flow"] : []),
             ],
             goal: String((profile as Record<string, unknown>)["goal"] ?? "") || undefined,
           },
         },
       });
       setChat((c) => [...c, { role: "ritu", text: r.ok ? r.answer : r.error }]);
-      if (r.ok && r.search) void viewProduct(r.search, r.search, true);
+      const query = r.ok ? checkinProductQuery({}, r.search) : undefined;
+      if (query) void viewProduct(query, query, true);
     } catch {
       setChat((c) => [...c, { role: "ritu", text: "Couldn’t reach Ritu right now." }]);
     } finally {
@@ -367,16 +336,19 @@ function Index() {
     const items = [...flat, ...(note.trim() ? [`Note: ${note.trim()}`] : [])];
     setLogs((l) => ({ ...l, [selDay]: items }));
     setApplied(Object.values(ans).flat());
-    setCiReply(null);
     setShop(null);
+    setSheet("chat");
+    setThinking(true);
     const summary = qs
       .map((q) => (ans[q.id]?.length ? `${q.title}: ${ans[q.id]?.join(", ")}` : ""))
       .filter(Boolean)
       .join("; ");
+    const message = `My ${selPhase.name.toLowerCase()} check-in: ${summary}${note.trim() ? `. Note: ${note.trim()}` : ""}`;
+    setChat((c) => [...c, { role: "you", text: message }]);
     try {
       const r = await runAsk({
         data: {
-          question: `My check-in today (${selPhase.name} phase): ${summary}${note.trim() ? `. Note: ${note.trim().slice(0, 200)}` : ""}. Explain briefly what is happening in my body and what can help. If my flow is logged, suggest the right pad type.`,
+          question: `My check-in today (${selPhase.name} phase): ${summary}${note.trim() ? `. Note: ${note.trim().slice(0, 200)}` : ""}. Explain what these specific answers may mean and give relevant self-care advice. Only suggest a product when these answers justify it; do not suggest face wash. If heavy flow is logged, explain suitable pad protection. For very heavy bleeding or severe pain, prioritise medical safety advice, not shopping.`,
           context: {
             day: cycle.dayFor(sel),
             length: cycle.len,
@@ -387,13 +359,13 @@ function Index() {
           },
         },
       });
-      setCiReply(r.ok ? r.answer : r.error);
-      const flow = ans["flow"]?.[0];
-      const recommendation = flow ? RULES[flow] : undefined;
-      const q = recommendation?.query ?? (r.ok ? r.search : null);
-      if (q) void viewProduct(recommendation?.title ?? q, q, true);
+      setChat((c) => [...c, { role: "ritu", text: r.ok ? r.answer : r.error }]);
+      const query = r.ok ? checkinProductQuery(ans, r.search) : undefined;
+      if (query) void viewProduct(query, query, true);
     } catch {
-      setCiReply("Couldn’t reach Ritu right now.");
+      setChat((c) => [...c, { role: "ritu", text: "Couldn’t reach Ritu right now." }]);
+    } finally {
+      setThinking(false);
     }
   };
   const toggle = (v: string) =>
@@ -778,39 +750,6 @@ function Index() {
       <p className="mt-4 text-sm text-muted-foreground">
         For your {cycle.phase.name.toLowerCase()} phase · compare prices in India
       </p>
-      <div className="mt-4">
-        {[
-          ...new Set([
-            ...(profile.flow === "heavy" ? ["Heavy flow"] : []),
-            ...Object.values(logs).flat(),
-          ]),
-        ].filter((a) => SUGGEST[a]).length > 0 && (
-          <div className="mb-4 flex flex-col gap-2">
-            <p className="eyebrow">BASED ON WHAT YOU LOGGED</p>
-            {[
-              ...new Set([
-                ...(profile.flow === "heavy" ? ["Heavy flow"] : []),
-                ...Object.values(logs).flat(),
-              ]),
-            ]
-              .filter((a) => SUGGEST[a])
-              .map((a) => {
-                const pick = SUGGEST[a];
-                return pick ? (
-                  <Button
-                    key={a}
-                    variant="outline"
-                    className="justify-between"
-                    onClick={() => viewProduct(pick.title, pick.query)}
-                  >
-                    {pick.title}
-                    <ShoppingBag />
-                  </Button>
-                ) : null;
-              })}
-          </div>
-        )}
-      </div>
       <div className="grid grid-cols-2 gap-3">
         {PICKS.map((p) => (
           <article key={p.id} className="overflow-hidden rounded-lg border border-border bg-card">
@@ -871,53 +810,7 @@ function Index() {
     chat: "Ask Ritu AI",
   };
   const sheetBody =
-    sheet === "feel" && applied ? (
-      <>
-        <p className="eyebrow">WHAT’S HAPPENING · {selPhase.name.toUpperCase()} PHASE</p>
-        <div className="mt-3 rounded-2xl bg-secondary p-4 text-sm leading-relaxed">
-          {ciReply === null ? (
-            <span className="text-muted-foreground">
-              <Loader2 className="inline animate-spin" size={14} /> Ritu is reading your check-in…
-            </span>
-          ) : (
-            ciReply.split("**").map((part, j) => (j % 2 ? <b key={j}>{part}</b> : part))
-          )}
-        </div>
-        {shopResult}
-        {applied.filter((a) => RULES[a]).length > 0 && (
-          <>
-            <p className="eyebrow mt-5">MORE FOR WHAT YOU LOGGED</p>
-            <div className="mt-2 flex flex-col gap-2">
-              {[...new Set(applied.filter((a) => RULES[a]))].map((a) => {
-                const pick = RULES[a];
-                return pick ? (
-                  <Button
-                    key={a}
-                    variant="outline"
-                    className="justify-between rounded-full"
-                    onClick={() => void viewProduct(pick.title, pick.query, true)}
-                  >
-                    {pick.title}
-                    <ShoppingBag />
-                  </Button>
-                ) : null;
-              })}
-            </div>
-          </>
-        )}
-        <Button
-          className="mt-6 h-12 w-full rounded-full"
-          onClick={() => {
-            setApplied(null);
-            setSheet(null);
-            setAns({});
-            setNote("");
-          }}
-        >
-          Done
-        </Button>
-      </>
-    ) : sheet === "feel" ? (
+    sheet === "feel" ? (
       <>
         <p className="mb-1 text-xs text-muted-foreground">
           {fmt(sel, { day: "numeric", month: "short" })} · Cycle day {cycle.dayFor(sel)} ·{" "}
@@ -968,7 +861,7 @@ function Index() {
         />
         <Button
           className="mt-6 h-14 w-full rounded-full text-base shadow-lg"
-          disabled={!Object.values(ans).some((v) => v.length) && !note.trim()}
+          disabled={thinking || (!Object.values(ans).some((v) => v.length) && !note.trim())}
           onClick={() => void saveCheckin()}
         >
           Save check-in
