@@ -65,6 +65,9 @@ button, input { font: inherit; } button { cursor: pointer; } h1,h2,h3,p { margin
 .ritu-sheet { overscroll-behavior:contain; }
 .ritu-sheet [aria-pressed=true] { background:var(--primary); color:var(--primary-foreground); }
 .ritu-sheet [aria-pressed=true]:hover { background:var(--primary); color:var(--primary-foreground); }
+.ritu-app nav button:hover { background:var(--primary-foreground); color:var(--primary); }
+.ritu-sheet .group.is-user { max-width:95%; }
+.ritu-sheet [role=log] { padding-top:4px; }
 .onboarding-surround { background:var(--surround); }
 .onboarding-surface { min-height:100svh; }
 .onboarding-photo { width:calc(100% + 48px); max-width:none; height:245px; object-fit:cover; margin:22px -24px 0; }

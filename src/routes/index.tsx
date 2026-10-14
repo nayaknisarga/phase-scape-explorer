@@ -224,7 +224,7 @@ function Index() {
     {(CHECKIN[selPhase.key] ?? []).map((q) => <div key={q.id} className="mt-5"><h3 className="font-semibold">{q.title}{!q.multi && <span className="ml-2 text-[10px] font-normal text-muted-foreground">pick one</span>}</h3><div className="mt-2 flex flex-wrap gap-2">{q.opts.map((o) => { const on = (ans[q.id] ?? []).includes(o); return <Button variant="ghost" key={o} type="button" aria-pressed={on} onClick={() => setAns((s) => { const cur = s[q.id] ?? []; return { ...s, [q.id]: selectAnswer(cur, o, q.multi) }; })} className={`flex h-10 items-center gap-1 rounded-full border px-4 text-sm transition ${on ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-card'}`}>{on && <Check size={14} />}{o}</Button>; })}</div></div>)}
     <h3 className="mt-5 font-semibold">Notes <span className="text-[10px] font-normal text-muted-foreground">optional</span></h3>
     <textarea aria-label="Notes" className="field-input mt-2 h-20 rounded-2xl py-2" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Write anything you want to remember…" />
-    <Button className="sticky bottom-0 mt-6 h-14 w-full rounded-full text-base shadow-lg" disabled={!Object.values(ans).some((v) => v.length) && !note.trim()} onClick={() => void saveCheckin()}>Save check-in</Button>
+    <Button className="mt-6 h-14 w-full rounded-full text-base shadow-lg" disabled={!Object.values(ans).some((v) => v.length) && !note.trim()} onClick={() => void saveCheckin()}>Save check-in</Button>
   </> : sheet === 'period' ? <>
     <p className="text-sm text-muted-foreground">Tap each day you bled. Dotted days are predicted.</p>
     <div className="mt-4 flex items-center justify-between"><Button variant="ghost" size="icon" aria-label="Previous month" onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() - 1, 1))}><ArrowLeft /></Button><b>{fmt(month, { month: 'long', year: 'numeric' })}</b><Button variant="ghost" size="icon" aria-label="Next month" onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() + 1, 1))}><ArrowLeft className="rotate-180" /></Button></div>
@@ -263,7 +263,7 @@ function Index() {
   return <div className="ritu-surround min-h-screen">
     <div className="ritu-app relative mx-auto min-h-screen max-w-md bg-background pb-32">
       {tab === 'home' ? home : tab === 'journal' ? journalTab : shopTab}
-      <Button size="icon" aria-label="Ask Ritu" className="fixed bottom-28 right-[max(1.25rem,calc(50%-14rem+1.25rem))] z-20 h-12 w-12 rounded-full shadow-lg" onClick={() => setSheet('chat')}><Flower2 /></Button>
+      <Button size="icon" aria-label="Ask Ritu" className="fixed bottom-28 right-[max(1.25rem,calc(50%-14rem+1.25rem))] z-20 h-12 w-12 rounded-full shadow-lg" onClick={() => { setShop(null); setSheet('chat'); }}><Flower2 /></Button>
       <p className="preview-status">Frontend preview · entries stay during this visit</p>
       <nav aria-label="Main" className="fixed bottom-5 left-1/2 z-20 flex w-[calc(100%-2.5rem)] max-w-[24rem] -translate-x-1/2 justify-around rounded-full bg-primary p-2 shadow-2xl">
         {navItems.map((n) => <Button variant="ghost" key={n.k} aria-label={n.l} aria-current={tab === n.k} onClick={() => { setTab(n.k); window.scrollTo(0, 0); }} className={`flex h-12 flex-1 items-center justify-center gap-1.5 rounded-full text-sm text-primary-foreground transition ${tab === n.k ? 'bg-primary-foreground/20 font-medium' : 'opacity-70'}`}><n.i size={20} />{tab === n.k && n.l}</Button>)}
