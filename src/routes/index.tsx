@@ -312,9 +312,7 @@ function Index() {
             length: cycle.len,
             phase: cycle.phase.name,
             daysToPeriod: cycle.daysTo,
-            symptoms: [
-              ...(logs[selDay] ?? []),
-            ],
+            symptoms: [...(logs[selDay] ?? [])],
             goal: String((profile as Record<string, unknown>)["goal"] ?? "") || undefined,
           },
         },

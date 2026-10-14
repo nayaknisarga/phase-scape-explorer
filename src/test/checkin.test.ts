@@ -25,14 +25,18 @@ describe("Phase-specific check-ins", () => {
     expect(selectAnswer(["Light"], "Heavy", false)).toEqual(["Heavy"]);
   });
   it("recommends heavy-flow pads only from an actual heavy-flow answer", () => {
-    expect(checkinProductQuery({ flow: ["Heavy"] })).toBe("XL overnight sanitary pads heavy flow India");
+    expect(checkinProductQuery({ flow: ["Heavy"] })).toBe(
+      "XL overnight sanitary pads heavy flow India",
+    );
     expect(checkinProductQuery({ mood: ["Happy"] })).toBeUndefined();
   });
   it("does not recommend face wash from an acne check-in or AI suggestion", () => {
     expect(checkinProductQuery({ sym: ["Acne"] }, "gentle face wash acne")).toBeUndefined();
   });
   it("keeps relevant AI-selected products", () => {
-    expect(checkinProductQuery({ sym: ["Cramps"] }, "heat patch period cramps India")).toBe("heat patch period cramps India");
+    expect(checkinProductQuery({ sym: ["Cramps"] }, "heat patch period cramps India")).toBe(
+      "heat patch period cramps India",
+    );
   });
   it("does not replace severe symptoms with shopping suggestions", () => {
     expect(checkinProductQuery({ flow: ["Very heavy"] }, "pads India")).toBeUndefined();
