@@ -182,7 +182,39 @@ export function Onboarding({ onDone }: { onDone: (p: Profile) => void }) {
     },
     {
       eyebrow: "YOUR CYCLE",
-      q: "How is your flow, usually?",
+      q: "How many days does your period usually last?",
+      hint: "Count the days you bleed. Type it in or tap one.",
+      body: (
+        <>
+          <label className="field-label" htmlFor="ob-duration">
+            Period length (days)
+          </label>
+          <input
+            id="ob-duration"
+            inputMode="numeric"
+            autoFocus
+            className="field-input"
+            value={p.duration}
+            placeholder="e.g. 5"
+            onChange={(e) => set("duration", e.target.value.replace(/[^0-9]/g, "").slice(0, 2))}
+          />
+          <div className="choice-row mt-4">
+            {["3", "4", "5", "6", "7"].map((v) => (
+              <Button
+                key={v}
+                variant="outline"
+                data-active={p.duration === v}
+                onClick={() => set("duration", v)}
+              >
+                {v}
+              </Button>
+            ))}
+          </div>
+        </>
+      ),
+      valid: Number(p.duration) >= 1 && Number(p.duration) <= 10,
+    },
+    {
       body: choices("flow", [
         opt("light", "Light", "Liners are enough"),
         opt("moderate", "Moderate", "A typical flow"),
