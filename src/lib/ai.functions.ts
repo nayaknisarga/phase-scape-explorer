@@ -5,6 +5,7 @@ const Input = z.object({
   question: z.string().min(1).max(600),
   context: z.object({
     day: z.number(), length: z.number(), phase: z.string(), daysToPeriod: z.number(),
+    periodLength: z.number().min(1).max(10).optional(),
     symptoms: z.array(z.string().max(60)).max(30), goal: z.string().max(80).optional(),
   }),
 });
@@ -20,7 +21,7 @@ export const askRitu = createServerFn({ method: 'POST' })
     const key = process.env['LOVABLE_API_KEY'];
     if (!key) return { ok: false as const, error: 'AI is not configured.' };
     const c = data.context;
-    const ctx = `Cycle day ${c.day} of ~${c.length}. Phase: ${c.phase}. Period expected in ~${c.daysToPeriod} days (±3). Logged today: ${c.symptoms.join(', ') || 'nothing'}. Goal: ${c.goal ?? 'not set'}.`;
+    const ctx = `Cycle day ${c.day} of ~${c.length}. Phase: ${c.phase}. Period expected in ~${c.daysToPeriod} days (±3). Period usually lasts ${c.periodLength ?? 5} days. Logged today: ${c.symptoms.join(', ') || 'nothing'}. Goal: ${c.goal ?? 'not set'}.`;
     const res = await fetch('https://ai.gateway.lovable.dev/v1/responses', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Lovable-API-Key': key, 'X-Lovable-AIG-SDK': 'fetch' },
