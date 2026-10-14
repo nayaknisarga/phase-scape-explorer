@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { ArrowLeft, Check, Flower2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import portraitImage from '@/assets/wellness-portrait.jpg';
 
 export type Profile = { name: string; age: string; sleep: string; energy: string; last: string; length: string; flow: string; pain: string; symptoms: string[]; goal: string };
 
@@ -9,7 +10,7 @@ const opt = (v: string, t: string, s: string) => ({ v, t, s });
 
 export function Onboarding({ onDone }: { onDone: (p: Profile) => void }) {
   const [step, setStep] = useState(0);
-  const [p, setP] = useState<Profile>({ name: '', age: '', sleep: 'ok', energy: 'ok', last: '2026-09-24', length: '28', flow: 'moderate', pain: 'mild', symptoms: [], goal: 'wellbeing' });
+  const [p, setP] = useState<Profile>({ name: '', age: '', sleep: 'ok', energy: 'ok', last: '', length: '28', flow: 'moderate', pain: 'mild', symptoms: [], goal: 'wellbeing' });
   const set = (k: keyof Profile, v: string) => setP(s => ({ ...s, [k]: v }));
   const choices = (k: keyof Profile, list: ReturnType<typeof opt>[]) => (
     <div className="flex flex-col gap-2">{list.map(o => (
@@ -32,13 +33,16 @@ export function Onboarding({ onDone }: { onDone: (p: Profile) => void }) {
     { eyebrow: 'TODAY', q: 'Anything you’re feeling today?', hint: 'Pick any — or none.', body: <div className="choice-row">{SYMPTOMS.map(s => <Button key={s} variant="outline" size="sm" data-active={p.symptoms.includes(s)} onClick={() => setP(x => ({ ...x, symptoms: x.symptoms.includes(s) ? x.symptoms.filter(i => i !== s) : [...x.symptoms, s] }))}>{s}</Button>)}</div> },
     { eyebrow: 'LAST ONE', q: 'What matters most to you?', body: choices('goal', [opt('track', 'Track my period', 'Know when it’s coming'), opt('pain', 'Ease period pain', 'Cramps & discomfort'), opt('wellbeing', 'Feel good daily', 'Energy, mood & wellbeing'), opt('pcos', 'Manage PCOS', 'Irregular cycles')]) },
   ];
-  const s = steps[step]!;
+  const s = steps[step];
+  if (!s) return null;
   const last = step === steps.length - 1;
   const ok = s.valid ?? true;
   return (
-    <main className="flex min-h-screen items-center justify-center bg-background p-4">
-      <section className="flex min-h-[640px] w-full max-w-md flex-col rounded-3xl border border-border bg-card p-6 shadow-lg" aria-label="Set up Ritu">
+    <main className="onboarding-surround flex min-h-screen items-center justify-center">
+      <section className="onboarding-surface flex w-full max-w-md flex-col bg-background p-6" aria-label="Set up Ritu">
+        <div className="mb-6 flex items-center justify-between"><span className="ritu-wordmark">ritu<span>.</span></span><span className="eyebrow">{step + 1} / {steps.length}</span></div>
         <div className="flex gap-1.5">{steps.map((_, i) => <i key={i} className={`h-1 flex-1 rounded-full ${i <= step ? 'bg-primary' : 'bg-muted'}`} />)}</div>
+        {step === 0 && <img className="onboarding-photo" src={portraitImage} width={1440} height={1024} alt="A peaceful moment, just for you" />}
         <span className="eyebrow mt-8">{s.eyebrow}</span>
         <h1 className="display mt-2 text-3xl">{s.q}</h1>
         {s.hint && <p className="mt-2 text-sm text-muted-foreground">{s.hint}</p>}

@@ -14,3 +14,4 @@
 - The current Ritu interface is an explicitly labelled frontend preview; keep health entries in transient React state until authenticated Cloud persistence is requested.
 - Express visual styling through the global semantic design system and use the shared Button for interactive controls.
 - AI answers come from a server function that builds a prompt from cycle context and calls the AI gateway; keep the key and safety rules server-side.
+- Keep phase-specific check-in definitions and answer selection in a browser-safe shared module so the UI and rule tests use the same source.
