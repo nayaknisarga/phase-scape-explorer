@@ -193,7 +193,7 @@ function Index() {
   const [sheet, setSheet] = useState<Sheet>(null);
   const [selDay, setSelDay] = useState(0);
   const [picked, setPicked] = useState<string[]>([]);
-  const [applied, setApplied] = useState<string[] | null>(null);
+  const [, setApplied] = useState<string[] | null>(null);
   const [ans, setAns] = useState<Record<string, string[]>>({});
   const [note, setNote] = useState("");
   const [logs, setLogs] = useState<Record<number, string[]>>({});
