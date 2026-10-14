@@ -253,6 +253,7 @@ function Index() {
         predicted.add(iso(new Date(next.getTime() + (c * len + k) * DAY)));
     return {
       len,
+      dur,
       dayOf,
       daysTo,
       phase: phaseFor(REF),
