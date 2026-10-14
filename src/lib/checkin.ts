@@ -160,3 +160,15 @@ export function selectAnswer(current: string[], value: string, multi: boolean) {
       )
     : [value];
 }
+
+/** Only actual check-in flow can select period protection. */
+export function checkinProductQuery(answers: Record<string, string[]>, aiQuery?: string) {
+  if (answers["flow"]?.includes("Very heavy") || answers["pain"]?.includes("Severe"))
+    return undefined;
+  const flow = answers["flow"]?.[0];
+  if (flow === "Heavy") return "XL overnight sanitary pads heavy flow India";
+  if (flow === "Medium") return "regular sanitary pads with wings India";
+  if (flow === "Light") return "light flow sanitary pads India";
+  if (flow === "Spotting") return "panty liners India";
+  return aiQuery && !/face\s*wash|facial\s*cleanser/i.test(aiQuery) ? aiQuery : undefined;
+}

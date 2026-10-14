@@ -16,3 +16,5 @@
 - AI answers come from a server function that builds a prompt from cycle context and calls the AI gateway; keep the key and safety rules server-side.
 - Keep phase-specific check-in definitions and answer selection in a browser-safe shared module so the UI and rule tests use the same source.
 - Compose the AI chat from installed AI Elements primitives while retaining the existing server-function transport, so markdown, input and product-tool states remain accessible.
+
+- Route saved check-ins into the existing chat; derive product eligibility from the shared check-in helper so unrelated profile defaults and historical symptoms cannot create automatic recommendations.
