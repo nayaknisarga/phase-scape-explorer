@@ -10,6 +10,7 @@ export type Profile = {
   energy: string;
   last: string;
   length: string;
+  duration: string;
   flow: string;
   pain: string;
   symptoms: string[];
@@ -37,6 +38,7 @@ export function Onboarding({ onDone }: { onDone: (p: Profile) => void }) {
     energy: "ok",
     last: "",
     length: "28",
+    duration: "5",
     flow: "moderate",
     pain: "mild",
     symptoms: [],
@@ -177,6 +179,40 @@ export function Onboarding({ onDone }: { onDone: (p: Profile) => void }) {
           ))}
         </div>
       ),
+    },
+    {
+      eyebrow: "YOUR CYCLE",
+      q: "How many days does your period usually last?",
+      hint: "Count the days you bleed. Type it in or tap one.",
+      body: (
+        <>
+          <label className="field-label" htmlFor="ob-duration">
+            Period length (days)
+          </label>
+          <input
+            id="ob-duration"
+            inputMode="numeric"
+            autoFocus
+            className="field-input"
+            value={p.duration}
+            placeholder="e.g. 5"
+            onChange={(e) => set("duration", e.target.value.replace(/[^0-9]/g, "").slice(0, 2))}
+          />
+          <div className="choice-row mt-4">
+            {["3", "4", "5", "6", "7"].map((v) => (
+              <Button
+                key={v}
+                variant="outline"
+                data-active={p.duration === v}
+                onClick={() => set("duration", v)}
+              >
+                {v}
+              </Button>
+            ))}
+          </div>
+        </>
+      ),
+      valid: Number(p.duration) >= 1 && Number(p.duration) <= 10,
     },
     {
       eyebrow: "YOUR CYCLE",

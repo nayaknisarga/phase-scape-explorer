@@ -231,27 +231,29 @@ function Index() {
   const cycle = useMemo(() => {
     const REF = new Date(TODAY.getTime() + selDay * DAY);
     const len = Number(profile?.length ?? 28);
+    const dur = Math.min(10, Math.max(1, Number(profile?.duration ?? 5) || 5));
     const start = parse(lastStart ?? profile?.last ?? "2026-09-24");
     const dayFor = (d: Date) =>
       (((Math.round((d.getTime() - start.getTime()) / DAY) % len) + len) % len) + 1;
     const phaseFor = (d: Date) => {
       const n = dayFor(d);
-      const phase = phases[n <= 5 ? 0 : n <= 11 ? 1 : n <= 14 ? 2 : 3];
+      const phase = phases[n <= dur ? 0 : n <= 11 ? 1 : n <= 14 ? 2 : 3];
       if (!phase) throw new Error("Missing cycle phase");
       return phase;
     };
     const dayOf = dayFor(REF);
     const diff = Math.round((REF.getTime() - start.getTime()) / DAY);
     const next = new Date(start.getTime() + Math.max(1, Math.ceil(diff / len)) * len * DAY);
-    const onPeriod = diff >= 0 && dayOf <= 5 && diff < len;
+    const onPeriod = diff >= 0 && dayOf <= dur && diff < len;
     const ovuRaw = new Date(next.getTime() - 14 * DAY);
     const daysTo = Math.max(0, Math.round((next.getTime() - REF.getTime()) / DAY));
     const predicted = new Set<string>();
     for (let c = 0; c < 4; c++)
-      for (let k = 0; k < 5; k++)
+      for (let k = 0; k < dur; k++)
         predicted.add(iso(new Date(next.getTime() + (c * len + k) * DAY)));
     return {
       len,
+      dur,
       dayOf,
       daysTo,
       phase: phaseFor(REF),
@@ -312,6 +314,7 @@ function Index() {
             length: cycle.len,
             phase: cycle.phase.name,
             daysToPeriod: cycle.daysTo,
+            periodLength: cycle.dur,
             symptoms: [...(logs[selDay] ?? [])],
             goal: String((profile as Record<string, unknown>)["goal"] ?? "") || undefined,
           },
@@ -352,6 +355,7 @@ function Index() {
             length: cycle.len,
             phase: selPhase.name,
             daysToPeriod: cycle.daysTo,
+            periodLength: cycle.dur,
             symptoms: items.slice(0, 30).map((x) => x.slice(0, 60)),
             goal: profile.goal || undefined,
           },
