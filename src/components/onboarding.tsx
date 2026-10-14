@@ -10,6 +10,7 @@ export type Profile = {
   energy: string;
   last: string;
   length: string;
+  duration: string;
   flow: string;
   pain: string;
   symptoms: string[];
@@ -37,6 +38,7 @@ export function Onboarding({ onDone }: { onDone: (p: Profile) => void }) {
     energy: "ok",
     last: "",
     length: "28",
+    duration: "5",
     flow: "moderate",
     pain: "mild",
     symptoms: [],
