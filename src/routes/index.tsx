@@ -231,12 +231,13 @@ function Index() {
   const cycle = useMemo(() => {
     const REF = new Date(TODAY.getTime() + selDay * DAY);
     const len = Number(profile?.length ?? 28);
+    const dur = Math.min(10, Math.max(1, Number(profile?.duration ?? 5) || 5));
     const start = parse(lastStart ?? profile?.last ?? "2026-09-24");
     const dayFor = (d: Date) =>
       (((Math.round((d.getTime() - start.getTime()) / DAY) % len) + len) % len) + 1;
     const phaseFor = (d: Date) => {
       const n = dayFor(d);
-      const phase = phases[n <= 5 ? 0 : n <= 11 ? 1 : n <= 14 ? 2 : 3];
+      const phase = phases[n <= dur ? 0 : n <= 11 ? 1 : n <= 14 ? 2 : 3];
       if (!phase) throw new Error("Missing cycle phase");
       return phase;
     };
