@@ -15,6 +15,11 @@ import heatImage from '@/assets/heat-care.jpg';
 import yogaImage from '@/assets/yoga-care.jpg';
 import journalImage from '@/assets/journal-care.jpg';
 import { phaseQuestions as CHECKIN, selectAnswer } from '@/lib/checkin';
+import { Message, MessageContent, MessageResponse } from '@/components/ai-elements/message';
+import { Conversation, ConversationContent, ConversationScrollButton } from '@/components/ai-elements/conversation';
+import { PromptInput, PromptInputTextarea, PromptInputFooter, PromptInputSubmit } from '@/components/ai-elements/prompt-input';
+import { Shimmer } from '@/components/ai-elements/shimmer';
+import { Tool, ToolHeader, ToolContent } from '@/components/ai-elements/tool';
 
 export const Route = createFileRoute('/')({
   head: () => ({ meta: [{ title: 'Ritu — Your cycle, understood' }, { name: 'description', content: 'Ritu: honest period predictions, daily check-ins, phase insights and gentle self-care in a calm mobile app.' }, { property: 'og:title', content: 'Ritu — Your cycle, understood' }, { property: 'og:description', content: 'A personal, honest approach to period and wellness tracking.' }, { property: 'og:type', content: 'website' }, { name: 'twitter:card', content: 'summary_large_image' }] }),
@@ -160,7 +165,7 @@ function Index() {
       </div>
       <div className="-mx-5 mt-5 flex gap-2 overflow-x-auto px-5 pb-1" role="tablist" aria-label="Choose day">
         {days.map((d, i) => { const off = i - 3; const a = off === selDay; const k = iso(d); const per = logged.has(k) || cycle.predicted.has(k); return (
-          <Button variant="ghost" key={off} role="tab" aria-selected={a} onClick={() => setSelDay(off)} className={`flex w-12 shrink-0 flex-col items-center rounded-2xl py-2 transition ${a ? 'bg-primary text-primary-foreground shadow-lg' : per ? 'bg-card text-primary' : 'text-muted-foreground'}`}>
+          <Button variant="ghost" key={off} role="tab" aria-selected={a} onClick={() => { setSelDay(off); setAns({}); setApplied(null); setNote(''); }} className={`flex w-12 shrink-0 flex-col items-center rounded-2xl py-2 transition ${a ? 'bg-primary text-primary-foreground shadow-lg' : per ? 'bg-card text-primary' : 'text-muted-foreground'}`}>
             <span className="text-[10px] uppercase">{fmt(d, { weekday: 'short' })}</span><span className="text-lg font-semibold">{d.getDate()}</span><i className={`mt-0.5 h-1.5 w-1.5 rounded-full ${logged.has(k) ? 'bg-primary' : cycle.predicted.has(k) ? 'border border-primary' : logs[off]?.length ? 'bg-sage-ink' : ''}`} />
           </Button>); })}
       </div>
@@ -240,17 +245,17 @@ function Index() {
         <li><b className="text-foreground">2 · Model:</b> a language model answers on a private server — your phone never holds the key.</li>
         <li><b className="text-foreground">3 · Guardrails:</b> rules stop exact dates, diagnoses and medicine advice; shopping skips clinical items.</li>
       </ol></details>
-    <div className="mt-4 flex flex-col gap-2" aria-live="polite">
+    <Conversation className="mt-4 h-72 flex-none"><ConversationContent className="gap-4 p-0">
       {chat.length === 0 && <p className="text-sm text-muted-foreground">Ask anything about how you feel in your {cycle.phase.name.toLowerCase()} phase.</p>}
-      {chat.map((m, i) => <p key={i} className={`max-w-[85%] rounded-2xl px-3 py-2 text-sm ${m.role === 'you' ? 'self-end bg-primary text-primary-foreground' : 'bg-muted'}`}>{m.text.split('**').map((part, j) => (j % 2 ? <b key={j}>{part}</b> : part))}</p>)}
-      {sheet === 'chat' && shopResult}
-      {thinking && <p className="text-sm text-muted-foreground"><Loader2 className="inline animate-spin" size={14} /> Thinking…</p>}
-    </div>
+      {chat.map((m, i) => <Message key={i} from={m.role === 'you' ? 'user' : 'assistant'}><MessageContent className="group-[.is-user]:bg-primary group-[.is-user]:text-primary-foreground"><MessageResponse>{m.text}</MessageResponse></MessageContent></Message>)}
+      {shop && <Message from="assistant"><Tool defaultOpen={false}><ToolHeader type="tool-product-search" title="Compare care products" state={shop.status === 'loading' ? 'input-available' : shop.error ? 'output-error' : 'output-available'} /><ToolContent>{shopResult}</ToolContent></Tool></Message>}
+      {thinking && <Shimmer className="text-sm">Thinking…</Shimmer>}
+    </ConversationContent><ConversationScrollButton /></Conversation>
     {chat.length === 0 && <div className="mt-3 flex flex-wrap gap-2">{['What should I eat today?', 'Why am I so tired?', 'Best workout for this phase?'].map((x) => <Button key={x} variant="outline" size="sm" className="rounded-full" onClick={() => send(x)}>{x}</Button>)}</div>}
-    <form className="mt-4 flex gap-2" onSubmit={(e) => { e.preventDefault(); send(q); }}>
-      <input aria-label="Your question" className="field-input flex-1" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Type a question…" />
-      <Button type="submit" className="h-12 rounded-full" disabled={!q.trim() || thinking}>Send</Button>
-    </form>
+    <PromptInput className="mt-4" onSubmit={({ text }) => send(text)}>
+      <PromptInputTextarea aria-label="Your question" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Type a question…" />
+      <PromptInputFooter className="justify-end"><PromptInputSubmit aria-label="Send question" status={thinking ? 'submitted' : 'ready'} disabled={!q.trim() || thinking} /></PromptInputFooter>
+    </PromptInput>
     </> : null;
 
   const navItems: { k: Tab; i: typeof House; l: string }[] = [{ k: 'home', i: House, l: 'Home' }, { k: 'journal', i: User, l: 'Journal' }, { k: 'shop', i: ShoppingBag, l: 'Shop' }];
